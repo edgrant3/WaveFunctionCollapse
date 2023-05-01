@@ -33,10 +33,26 @@ class GraphicsWindow():
         self.window.update()
 
 ##############################################
+
+class direction():
+    def __init__(self, dir, opp, idx = (0,0)):
+        self.dir = dir
+        self.opp = opp
+        self.idx = idx
+
+    def is_valid(self, idx, grid_dims):        
+        return (0 <= idx[0] + self.idx[0] < grid_dims[0]) and (0 <= idx[1] + self.idx[1] < grid_dims[1])
+
+
 class Tile():
     min_dim = 30
     img_size = None
     rotate_idxs = [1]
+    directions = {"N": direction("N", "S", (-1, 0)),
+                  "E": direction("E", "W", ( 0, 1)),
+                  "S": direction("S", "N", ( 1, 0)),
+                  "W": direction("W", "E", ( 0,-1))}
+    
     def __init__(self, id, image, img_size = None):
         self.id = id
         self.image = image
@@ -140,54 +156,19 @@ class WFC():
     def update_neighbors(self, idx):
         collapsed_tile = self.tiles[self.tile_map[idx].possible[0]]
 
-        # North
-        if idx[0] > 0:
-            N_socket = collapsed_tile.sockets["N"]
-            N_idx    = (idx[0]-1, idx[1])
+        for dir in ["N", "E", "S", "W"]:
+            if Tile.directions[dir].is_valid(idx, self.window.grid_dims):
+                socket  = collapsed_tile.sockets[dir]
+                opp     = Tile.directions[dir].opp
+                dir_idx = Tile.directions[dir].idx
+                neighbor_idx = (idx[0] + dir_idx[0], idx[1] + dir_idx[1])
 
-            if N_idx not in self.tile_map:
-                self.tile_map[N_idx] = waveTile([*range(self.n_tiles)], False)
+                if neighbor_idx not in self.tile_map:
+                    self.tile_map[neighbor_idx] = waveTile([*range(self.n_tiles)], False)
 
-            if not self.tile_map[N_idx].collapsed:
-                self.tile_map[N_idx].possible = [x for x in self.tile_map[N_idx].possible if N_socket == self.tiles[x].sockets["S"]]
-                self.entropy_map[N_idx] = len(self.tile_map[N_idx].possible)
-
-        # East
-        if idx[1] < self.window.grid_dims[1] - 1:
-            E_socket = collapsed_tile.sockets["E"]
-            E_idx    = (idx[0], idx[1]+1)
-
-            if E_idx not in self.tile_map:
-                self.tile_map[E_idx] = waveTile([*range(self.n_tiles)], False)
-
-            if not self.tile_map[E_idx].collapsed:
-                self.tile_map[E_idx].possible = [x for x in self.tile_map[E_idx].possible if E_socket == self.tiles[x].sockets["W"]]
-                self.entropy_map[E_idx] = len(self.tile_map[E_idx].possible)
-
-        # South
-        if idx[0] < self.window.grid_dims[0] - 1:
-            S_socket = collapsed_tile.sockets["S"]
-            S_idx    = (idx[0]+1, idx[1])
-
-            if S_idx not in self.tile_map:
-                self.tile_map[S_idx] = waveTile([*range(self.n_tiles)], False)
-
-            if not self.tile_map[S_idx].collapsed:
-                self.tile_map[S_idx].possible = [x for x in self.tile_map[S_idx].possible if S_socket == self.tiles[x].sockets["N"]]
-                self.entropy_map[S_idx] = len(self.tile_map[S_idx].possible)
-
-
-        # West
-        if idx[1] > 0:
-            W_socket = collapsed_tile.sockets["W"]
-            W_idx    = (idx[0], idx[1]-1)
-
-            if W_idx not in self.tile_map:
-                self.tile_map[W_idx] = waveTile([*range(self.n_tiles)], False)
-
-            if not self.tile_map[W_idx].collapsed:
-                self.tile_map[W_idx].possible = [x for x in self.tile_map[W_idx].possible if W_socket == self.tiles[x].sockets["E"]]
-                self.entropy_map[W_idx] = len(self.tile_map[W_idx].possible)
+                if not self.tile_map[neighbor_idx].collapsed:
+                    self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible if socket == self.tiles[x].sockets[opp]]
+                    self.entropy_map[neighbor_idx] = len(self.tile_map[neighbor_idx].possible)
         
 
     def collapse(self):
@@ -202,8 +183,10 @@ class WFC():
             tile_idx = self.start_idx #(0,0)
             self.tile_map[tile_idx] = waveTile([1], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
+
         elif min_entropy == self.n_tiles + 1:
             return tile_idx, True
+        
         else :
             # print(len(self.tile_map[tile_idx].possible))
             if len(self.tile_map[tile_idx].possible) != 0:
@@ -219,23 +202,19 @@ class WFC():
         self.update_neighbors(tile_idx)
         return tile_idx, False
     
-    
     def draw(self, idx):
-        
         img_path = self.tiles[self.tile_map[idx].possible[0]].image
         new_tile_img = graphics.Image(Point(idx[1]*Tile.img_size[1] + Tile.img_size[1] / 2 - 1, 
                                             idx[0]*Tile.img_size[0] + Tile.img_size[0] / 2 - 1), 
                                             img_path)
+        
         new_tile_img.draw(self.window.window)
 
     def run(self):
-        # count = 0
         while True:
                 collapsed_idx, terminate = self.collapse()
                 self.draw(collapsed_idx)
                 # time.sleep(0.00001)
-                # count += 1
-                # print(count)
                 if terminate:
                     break
 
