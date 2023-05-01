@@ -26,6 +26,11 @@ class GraphicsWindow():
     @classmethod
     def fromTileGrid(cls, tile_dims, grid_dims):
         return cls(tile_dims[0] * grid_dims[0], tile_dims[1] * grid_dims[1], grid_dims)
+    
+    def clear(self):
+        for item in self.window.items[:]:
+            item.undraw()
+        self.window.update()
 
 ##############################################
 class Tile():
@@ -95,7 +100,6 @@ class Tile():
     @classmethod    
     def generate_tiles(cls):
         images = cls.load_images()
-        print(len(images))
         tiles = []
         for i, img in enumerate(images):
             new_tile = cls(i, img)
@@ -127,13 +131,11 @@ class waveTile():
 class WFC():
     def __init__(self, window):
         self.tiles  = Tile.generate_tiles()
-        for tile in self.tiles:
-            print(tile.image)
-            print(tile.sockets)
         self.n_tiles = len(self.tiles)
         self.window = window
         self.entropy_map = np.ones((self.window.grid_dims[0], self.window.grid_dims[1])) * self.n_tiles
         self.tile_map    = {}  
+        self.start_idx = (0,0)
     
     def update_neighbors(self, idx):
         collapsed_tile = self.tiles[self.tile_map[idx].possible[0]]
@@ -197,7 +199,7 @@ class WFC():
 
         if min_entropy == self.n_tiles:
             #first iteration
-            tile_idx = (0,0)
+            tile_idx = self.start_idx #(0,0)
             self.tile_map[tile_idx] = waveTile([1], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
         elif min_entropy == self.n_tiles + 1:
@@ -230,15 +232,20 @@ class WFC():
         # count = 0
         while True:
                 collapsed_idx, terminate = self.collapse()
-
                 self.draw(collapsed_idx)
-                # time.sleep(0.0001)
-                # self.window.window.getMouse()
+                # time.sleep(0.00001)
                 # count += 1
                 # print(count)
-
                 if terminate:
                     break
+
+        # self.window.window.getMouse()
+        time.sleep(0.5)
+        self = WFC(self.window)
+        self.window.clear()
+        # self.window.window.getMouse()
+        time.sleep(0.5)
+        self.run()
 
 ##############################################
 #############------ MAIN ------###############
@@ -246,16 +253,16 @@ class WFC():
 
 if __name__ == "__main__":
 
+    Tile.min_dim = 15
     new_dims = Tile.resize_images()
     # TODO: fix it needing square dims
-    win = GraphicsWindow.fromTileGrid(new_dims, (25,25))
+    win = GraphicsWindow.fromTileGrid(new_dims, (45,45))
 
     wfc = WFC(win)
+    # wfc.start_idx = wfc.window.grid_dims[0]//2, wfc.window.grid_dims[1]//2
     wfc.run()
 
     win.window.getMouse()
     win.window.close()
-
-    print("DONE")
 
 
