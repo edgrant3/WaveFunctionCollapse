@@ -221,6 +221,12 @@ class WFC():
 #############------ MAIN ------###############
 ##############################################
 
+# TODO LIST #
+# - Fix the window size needing to be square
+# - Add more sophisticated tile weighting (currently just adds redundant tiles)
+# - Add neighbor affinity mechanic to increase probability of certain tiles being neighbors
+# - Add patch tile functionality to handle unsolvable cases OR another solution
+
 if __name__ == "__main__":
 
     village = "village_tile_set"
@@ -232,14 +238,14 @@ if __name__ == "__main__":
     print("Village tile count: ", len(t2))
     t_dict = {0: t1, 1: t2}
 
-    wfc = WFC((30,30), t1) # TODO: fix it needing square dims
+    wfc = WFC((25,25), t1)
 
     toggle = 0
     while(True):
         wfc.run()
 
-        time.sleep(2.0)
-        # self.win.window.getMouse()
+        # time.sleep(2.0)
+        wfc.win.window.getMouse()
         
         toggle = (toggle + 1) % 2
 

@@ -105,9 +105,9 @@
                 "rotations": [1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
-                "weight": 3,
+                "weight": 1,
                 "sockets": {
-                    "N": "AAA",
+                    "N": "ABA",
                     "E": "AAA",
                     "S": "AAA",
                     "W": "AAA"
@@ -121,9 +121,9 @@
                 "rotations": [1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
-                "weight": 3,
+                "weight": 1,
                 "sockets": {
-                    "N": "AAA",
+                    "N": "ABA",
                     "E": "AAA",
                     "S": "AAA",
                     "W": "AAA"
