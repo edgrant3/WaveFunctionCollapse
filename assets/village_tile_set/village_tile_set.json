@@ -1,0 +1,135 @@
+{
+    "tileset": {
+        "name": "village_tile_set",
+        "tiles": [
+
+            {
+                "id": 0,
+                "image": "assets/village_tile_set/0.png",
+                "rotations": [],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 1,
+                "image": "assets/village_tile_set/1.png",
+                "rotations": [1],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 6,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "AAA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 2,
+                "image": "assets/village_tile_set/2.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 3,
+                "image": "assets/village_tile_set/3.png",
+                "rotations": [],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "ABA"
+                }
+
+            },
+
+            {
+                "id": 4,
+                "image": "assets/village_tile_set/4.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 5,
+                "image": "assets/village_tile_set/5.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 6,
+                "image": "assets/village_tile_set/6.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 3,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 7,
+                "image": "assets/village_tile_set/7.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 3,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            }
+        ]
+    }
+}

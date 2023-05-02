@@ -1,0 +1,39 @@
+{
+    "tileset": {
+        "name": "default_tile_set",
+        "tiles": [
+
+            {
+                "id": 0,
+                "image": "assets/default_tile_set/0.png",
+                "rotations": [],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 1,
+                "image": "assets/default_tile_set/1.png",
+                "rotations": [1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "AAA",
+                    "W": "ABA"
+                }
+
+            }
+        ]
+    }
+}

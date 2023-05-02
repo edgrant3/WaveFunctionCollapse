@@ -1,6 +1,9 @@
 import math
 import glob
 import PIL
+import json
+import os
+import copy
 from PIL import Image
 import numpy as np
 import time
@@ -20,7 +23,7 @@ class GraphicsWindow():
         self.width  = pix_width
         self.height = pix_height
         self.window = GraphWin("Wave Function Collapse", self.width, self.height)
-        self.window.setBackground("red")
+        self.window.setBackground("black")
         self.grid_dims = grid_dims
 
     @classmethod
@@ -43,11 +46,11 @@ class direction():
     def is_valid(self, idx, grid_dims):        
         return (0 <= idx[0] + self.idx[0] < grid_dims[0]) and (0 <= idx[1] + self.idx[1] < grid_dims[1])
 
+##############################################
 
 class Tile():
     min_dim = 30
     img_size = None
-    rotate_idxs = [1]
     directions = {"N": direction("N", "S", (-1, 0)),
                   "E": direction("E", "W", ( 0, 1)),
                   "S": direction("S", "N", ( 1, 0)),
@@ -60,84 +63,76 @@ class Tile():
         self.rot = 0
         self.sockets = {}
 
-    def rotate(self, rot):
+    def rotate(self, old, rot):
         rot = rot % 4
-        new_Tile = Tile(self.id, f"assets/resized_assets/{self.id}_{rot}.png")
-        new_Tile.rot = rot
-        
         if rot == 1:
-            new_Tile.sockets["N"] = self.sockets["W"]
-            new_Tile.sockets["E"] = self.sockets["N"]
-            new_Tile.sockets["S"] = self.sockets["E"]
-            new_Tile.sockets["W"] = self.sockets["S"]
+            self.sockets["N"] = old.sockets["W"]
+            self.sockets["E"] = old.sockets["N"]
+            self.sockets["S"] = old.sockets["E"]
+            self.sockets["W"] = old.sockets["S"]
         elif rot == 2:
-            new_Tile.sockets["N"] = self.sockets["S"]
-            new_Tile.sockets["E"] = self.sockets["W"]
-            new_Tile.sockets["S"] = self.sockets["N"]
-            new_Tile.sockets["W"] = self.sockets["E"]
+            self.sockets["N"] = old.sockets["S"]
+            self.sockets["E"] = old.sockets["W"]
+            self.sockets["S"] = old.sockets["N"]
+            self.sockets["W"] = old.sockets["E"]
         elif rot == 3:
-            new_Tile.sockets["N"] = self.sockets["E"]
-            new_Tile.sockets["E"] = self.sockets["S"]
-            new_Tile.sockets["S"] = self.sockets["W"]
-            new_Tile.sockets["W"] = self.sockets["N"]
-        
-        return new_Tile
-        
-    @classmethod
-    def load_images(cls):
-        cls.resize_images()
-        cls.create_rotated_images()
-        return glob.glob("assets/resized_assets/*.png")
-    
-    @classmethod
-    def resize_images(cls):
-        files = glob.glob("assets/*.png")
-        pil_img = None
-        for i, img in enumerate(files):
-            pil_img = PIL.Image.open(img)
-            scale = math.ceil( float(Tile.min_dim) / float(min(pil_img.size)) )
-            pil_img = pil_img.resize((scale*pil_img.size[0], scale*pil_img.size[1]))
-            pil_img.save(f"assets/resized_assets/{i}_0.png")
+            self.sockets["N"] = old.sockets["E"]
+            self.sockets["E"] = old.sockets["S"]
+            self.sockets["S"] = old.sockets["W"]
+            self.sockets["W"] = old.sockets["N"]
 
+    @classmethod
+    def resize_image(cls, tile, dir):
+        pil_img = PIL.Image.open(tile["image"])
+        scale = math.ceil( float(cls.min_dim) / float(min(pil_img.size)) )
+        pil_img = pil_img.resize((scale*pil_img.size[0], scale*pil_img.size[1]), 
+                                  resample = PIL.Image.NEAREST)
         cls.img_size = pil_img.size
-        return pil_img.size
-    
-    @classmethod
-    def create_rotated_images(cls):
-        files = glob.glob("assets/resized_assets/*.png")
-        pil_img = None
-        for i, img in enumerate(files):
-            if i in cls.rotate_idxs:
-                pil_img = PIL.Image.open(img)
-                pil_img.rotate(-90).save(f"assets/resized_assets/{i}_1.png")
-                pil_img.rotate(-180).save(f"assets/resized_assets/{i}_2.png")
-                pil_img.rotate(-270).save(f"assets/resized_assets/{i}_3.png")
-    
-    @classmethod    
-    def generate_tiles(cls):
-        images = cls.load_images()
-        tiles = []
-        for i, img in enumerate(images):
-            new_tile = cls(i, img)
-            if i == 0:
-                new_tile.sockets["N"] = "AAA"
-                new_tile.sockets["E"] = "AAA"
-                new_tile.sockets["S"] = "AAA"
-                new_tile.sockets["W"] = "AAA"
-                tiles.append(new_tile)
-            elif i == 1:
-                new_tile.sockets["N"] = "ABA"
-                new_tile.sockets["E"] = "ABA"
-                new_tile.sockets["S"] = "AAA"
-                new_tile.sockets["W"] = "ABA"
-                tiles.append(new_tile)
 
-                for k in range(1, 4):
-                    rotated_tile = new_tile.rotate(k)
-                    tiles.append(rotated_tile)
-            
+        resized_path = f'{dir}/{tile["id"]}_0.png'
+        pil_img.save(resized_path)
+        
+        return resized_path
+
+    @classmethod
+    def create_rotated_image(cls, tile, rot, dir):
+        pil_img = PIL.Image.open(tile.image)
+        rotated_path = f'{dir}/{tile.id}_{rot}.png'
+        pil_img.rotate(-90*rot).save(rotated_path)
+        return rotated_path
+
+    @classmethod
+    def generate_tiles_JSON(cls, json_filename):
+        path = f"assets/{json_filename}"
+        with open(os.path.join(path, json_filename + ".json")) as file:
+            file_contents = file.read()
+
+        path = os.path.join(path, "processed_images")
+
+        tileset = json.loads(file_contents)["tileset"]
+        tiles   = []
+        for tile in tileset["tiles"]:
+            if not tile["ignore"]:
+                # TODO: make weight affect selection probability
+                # instead of the inefficient method below of adding redundant tiles
+                for i in range(tile["weight"]):
+                    img = cls.resize_image(tile, path)
+                    new_tile = cls(tile["id"], img)
+                    new_tile.sockets = tile["sockets"]
+                    tiles.append(new_tile)
+
+                    for rot in tile["rotations"]:
+                        img = cls.create_rotated_image(new_tile, rot, path)
+                        rotated_tile = cls(new_tile.id, img)
+                        rotated_tile.sockets = copy.deepcopy(new_tile.sockets)
+                        rotated_tile.rot = rot
+                        rotated_tile.rotate(new_tile, rot)
+                        tiles.append(rotated_tile)
+
         return tiles
-    
+
+##############################################
+
 class waveTile():
     def __init__(self, possible_tiles = [], collapsed = False):
         self.collapsed = collapsed
@@ -145,11 +140,15 @@ class waveTile():
         
 ##############################################
 class WFC():
-    def __init__(self, window):
-        self.tiles  = Tile.generate_tiles()
+    def __init__(self, grid_size, tiles, win = None):
+        self.grid_size = grid_size
+        self.tiles = tiles
         self.n_tiles = len(self.tiles)
-        self.window = window
-        self.entropy_map = np.ones((self.window.grid_dims[0], self.window.grid_dims[1])) * self.n_tiles
+        if win:
+            self.win = win
+        else:
+            self.win = GraphicsWindow.fromTileGrid(Tile.img_size, self.grid_size)
+        self.entropy_map = np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
         self.tile_map    = {}  
         self.start_idx = (0,0)
     
@@ -157,7 +156,7 @@ class WFC():
         collapsed_tile = self.tiles[self.tile_map[idx].possible[0]]
 
         for dir in ["N", "E", "S", "W"]:
-            if Tile.directions[dir].is_valid(idx, self.window.grid_dims):
+            if Tile.directions[dir].is_valid(idx, self.win.grid_dims):
                 socket  = collapsed_tile.sockets[dir]
                 opp     = Tile.directions[dir].opp
                 dir_idx = Tile.directions[dir].idx
@@ -208,9 +207,9 @@ class WFC():
                                             idx[0]*Tile.img_size[0] + Tile.img_size[0] / 2 - 1), 
                                             img_path)
         
-        new_tile_img.draw(self.window.window)
+        new_tile_img.draw(self.win.window)
 
-    def run(self):
+    def run(self, tileset = None):
         while True:
                 collapsed_idx, terminate = self.collapse()
                 self.draw(collapsed_idx)
@@ -218,30 +217,39 @@ class WFC():
                 if terminate:
                     break
 
-        # self.window.window.getMouse()
-        time.sleep(0.5)
-        self = WFC(self.window)
-        self.window.clear()
-        # self.window.window.getMouse()
-        time.sleep(0.5)
-        self.run()
-
 ##############################################
 #############------ MAIN ------###############
 ##############################################
 
 if __name__ == "__main__":
 
-    Tile.min_dim = 15
-    new_dims = Tile.resize_images()
-    # TODO: fix it needing square dims
-    win = GraphicsWindow.fromTileGrid(new_dims, (45,45))
+    village = "village_tile_set"
+    default = "default_tile_set"
 
-    wfc = WFC(win)
-    # wfc.start_idx = wfc.window.grid_dims[0]//2, wfc.window.grid_dims[1]//2
-    wfc.run()
+    Tile.min_dim = 30
+    t1 = Tile.generate_tiles_JSON(default)
+    t2 = Tile.generate_tiles_JSON(village)
+    print("Village tile count: ", len(t2))
+    t_dict = {0: t1, 1: t2}
 
-    win.window.getMouse()
-    win.window.close()
+    wfc = WFC((30,30), t1) # TODO: fix it needing square dims
+
+    toggle = 0
+    while(True):
+        wfc.run()
+
+        time.sleep(2.0)
+        # self.win.window.getMouse()
+        
+        toggle = (toggle + 1) % 2
+
+        wfc = WFC(wfc.grid_size, t_dict[toggle], wfc.win)
+
+        wfc.win.clear()
+
+        time.sleep(0.25)
+
+    wfc.win.window.getMouse()
+    wfc.win.window.close()
 
 
