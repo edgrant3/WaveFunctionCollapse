@@ -23,7 +23,7 @@ class GraphicsWindow():
         self.width  = pix_width
         self.height = pix_height
         self.window = GraphWin("Wave Function Collapse", self.width, self.height)
-        self.window.setBackground("blue")
+        self.window.setBackground("red")
         self.grid_dims = grid_dims
 
     @classmethod
@@ -50,21 +50,20 @@ class direction():
 
 class Tile():
     min_dim = 30
-    img_size = None
     # coords: (w, h), top left origin
     directions = {"N": direction("N", "S", ( 0, -1 )),
                   "E": direction("E", "W", ( 1,  0 )),
                   "S": direction("S", "N", ( 0,  1 )),
                   "W": direction("W", "E", (-1,  0 ))}
     
-    def __init__(self, id, image, weight = 1, ispatch = False):
+    def __init__(self, id, image, weight = 1, ispatch = False, img_size = None):
         self.id = id
         self.image = image
         self.rot = 0
         self.weight = weight
         self.ispatch = ispatch
         self.sockets = {}
-        self.img_size = None
+        self.img_size = img_size
 
     def rotate(self, old, rot):
         rot = rot % 4
@@ -90,12 +89,11 @@ class Tile():
         scale = math.ceil( float(cls.min_dim) / float(min(pil_img.size)) )
         pil_img = pil_img.resize((scale*pil_img.size[0], scale*pil_img.size[1]), 
                                   resample = PIL.Image.NEAREST)
-        cls.img_size = pil_img.size
 
         resized_path = f'{dir}/{tile["id"]}_0.png'
         pil_img.save(resized_path)
         
-        return resized_path
+        return resized_path, pil_img.size
 
     @classmethod
     def create_rotated_image(cls, tile, rot, dir):
@@ -119,15 +117,16 @@ class Tile():
         for tile in tileset["tiles"]:
             if not tile["ignore"]:
 
-                img = cls.resize_image(tile, path)
+                img, img_size = cls.resize_image(tile, path)
 
-                new_tile = cls(tile["id"], img, tile["weight"], tile["patch_tile"])
+                new_tile = cls(tile["id"], img, tile["weight"], tile["patch_tile"], img_size)
                 new_tile.sockets = tile["sockets"]
-
+                
                 for rot in tile["rotations"]:
                     img = cls.create_rotated_image(new_tile, rot, path)
-                    rotated_tile = cls(new_tile.id, img)
-                    rotated_tile.sockets = copy.deepcopy(new_tile.sockets)
+                    # rotated_tile = cls(new_tile.id, img)
+                    rotated_tile = copy.deepcopy(new_tile)
+                    rotated_tile.image = img
                     rotated_tile.rot = rot
                     rotated_tile.rotate(new_tile, rot)
 
@@ -156,10 +155,12 @@ class WFC():
         self.tile_ids = tile_ids
         self.patch_ids = patch_ids
         self.n_tiles = len(self.tile_ids)
+
         if win:
             self.win = win
         else:
-            self.win = GraphicsWindow.fromTileGrid(Tile.img_size, self.grid_size)
+            self.win = GraphicsWindow.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
+
         self.entropy_map = np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
         self.tile_map    = {}  
         self.start_idx = (0,0)
@@ -180,7 +181,7 @@ class WFC():
                     self.tile_map[neighbor_idx] = waveTile(self.tile_ids, False)
 
                 if not self.tile_map[neighbor_idx].collapsed:
-                    self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible if socket == self.tiles[x].sockets[opp]]
+                    self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible if socket == self.tiles[x].sockets[opp][::-1]]
                     self.entropy_map[neighbor_idx] = len(self.tile_map[neighbor_idx].possible)
 
     def check_neighbors(self, idx, id):
@@ -213,7 +214,7 @@ class WFC():
         if min_entropy == self.n_tiles:
             #first iteration
             tile_idx = self.start_idx #(0,0)
-            self.tile_map[tile_idx] = waveTile([(1,0)], True)
+            self.tile_map[tile_idx] = waveTile([(0,0)], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
 
         elif min_entropy == self.n_tiles + 1:
@@ -223,12 +224,13 @@ class WFC():
         else :
             # print(len(self.tile_map[tile_idx].possible))
             options = self.tile_map[tile_idx].possible
+            # print(options)
             num_options = len(options)
             if num_options != 0:
                 # if there is a viable tile, choose one at random from weighted distribution
                 prob = [self.tiles[t].weight for t in options] 
                 prob /= np.sum(prob)
-
+                    
                 options_idx = range(len(options))
                 chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
                 self.tile_map[tile_idx].possible = [options[chosen_idx]]
@@ -265,8 +267,9 @@ class WFC():
     
     def draw(self, idx):
         img_path = self.tiles[self.tile_map[idx].possible[0]].image
-        new_tile_img = graphics.Image(Point(idx[0]*Tile.img_size[0] + Tile.img_size[0] / 2, 
-                                            idx[1]*Tile.img_size[1] + Tile.img_size[1] / 2), 
+        size = self.tiles[self.tile_ids[0]].img_size
+        new_tile_img = graphics.Image(Point(idx[0]*size[0] + size[0] / 2 - size[0] % 2, 
+                                            idx[1]*size[1] + size[1] / 2 - size[0] % 2), 
                                             img_path)
         
         new_tile_img.draw(self.win.window)
@@ -287,33 +290,36 @@ class WFC():
 # - Add neighbor affinity mechanic to increase probability of certain tiles being neighbors
 # - - possibly through input image analysis
 
-# - DONE for this commit: Fix the window size needing to be square
-# - DONE for this commit: Add more sophisticated tile weighting (currently just adds redundant tiles)
-# - DONE for this commit: Add patch tile functionality to handle unsolvable cases OR another solution
+# NOTE: adding more tiles with same sockets increases the entropy of those kind of regions
+#       -- meaning in the ocean map, it solves the ocean first and then fills in islands,
+#       -- but the island borders in that case may be unsolvable!!!
 
 if __name__ == "__main__":
 
-    village = "village_tile_set"
+    village = "village_tile_set2"
     default = "default_tile_set"
+    ocean  = "ocean_tile_set"
 
-    Tile.min_dim = 30
+    Tile.min_dim = 15
     t1_dict, t1, pt1 = Tile.generate_tiles_JSON(default)
-    print(t1)
     t2_dict, t2, pt2 = Tile.generate_tiles_JSON(village)
-    print("Village tile count: ", len(t2))
-    t_dict = {0: (t1_dict, t1, pt1), 1: (t2_dict, t2, pt2)}
+    t3_dict, t3, pt3 = Tile.generate_tiles_JSON(ocean)
+
+    t_dict = {0: (t1_dict, t1, pt1), 
+              1: (t2_dict, t2, pt2),
+              2: (t3_dict, t3, pt3)}
 
     # self, grid_size, tiles, tile_ids, patch_ids, win = None
-    wfc = WFC((40,30), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
+    wfc = WFC((45, 45), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
 
     toggle = 0
     while(True):
         wfc.run()
 
-        time.sleep(2.0)
-        # wfc.win.window.getMouse()
+        # time.sleep(2.0)
+        wfc.win.window.getMouse()
         
-        toggle = (toggle + 1) % 2
+        toggle = (toggle + 1) % len(t_dict.keys())
 
         wfc = WFC(wfc.grid_size, t_dict[toggle][0], t_dict[toggle][1], t_dict[toggle][2], wfc.win)
 

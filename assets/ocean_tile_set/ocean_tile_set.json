@@ -1,0 +1,119 @@
+{
+    "tileset": {
+        "name": "ocean_tile_set",
+        "tiles": [
+
+            {
+                "id": 0,
+                "image": "assets/ocean_tile_set/0.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 100,
+                "sockets": {
+                    "N": "AAAA",
+                    "E": "AAAA",
+                    "S": "AAAA",
+                    "W": "AAAA"
+                }
+
+            },
+
+            {
+                "id": 1,
+                "image": "assets/ocean_tile_set/1.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 10,
+                "sockets": {
+                    "N": "BBBB",
+                    "E": "BBBB",
+                    "S": "BBBB",
+                    "W": "BBBB"
+                }
+
+            },
+
+            {
+                "id": 2,
+                "image": "assets/ocean_tile_set/2.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ACBB",
+                    "E": "BBBB",
+                    "S": "BBCA",
+                    "W": "AAAA"
+                }
+
+            },
+
+            {
+                "id": 3,
+                "image": "assets/ocean_tile_set/3.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAAA",
+                    "E": "ACBB",
+                    "S": "BBCA",
+                    "W": "AAAA"
+                }
+
+            },
+
+            {
+                "id": 4,
+                "image": "assets/ocean_tile_set/4.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ACBB",
+                    "E": "BBBB",
+                    "S": "BBBB",
+                    "W": "BBCA"
+                }
+
+            },
+
+            {
+                "id": 5,
+                "image": "assets/ocean_tile_set/5.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 0.1,
+                "sockets": {
+                    "N": "BBBB",
+                    "E": "BBBB",
+                    "S": "BBBB",
+                    "W": "BBBB"
+                }
+
+            },
+
+            {
+                "id": 6,
+                "image": "assets/ocean_tile_set/6.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": true,
+                "weight": 0.05,
+                "sockets": {
+                    "N": "BBBB",
+                    "E": "BBBB",
+                    "S": "BBBB",
+                    "W": "BBBB"
+                }
+
+            }
+        ]
+    }
+}

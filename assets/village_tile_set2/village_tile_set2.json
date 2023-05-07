@@ -1,0 +1,151 @@
+{
+    "tileset": {
+        "name": "village_tile_set2",
+        "tiles": [
+
+            {
+                "id": 0,
+                "image": "assets/village_tile_set2/0.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 10,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 1,
+                "image": "assets/village_tile_set2/1.png",
+                "rotations": [0, 1],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 6,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "AAA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 2,
+                "image": "assets/village_tile_set2/2.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 0.5,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 3,
+                "image": "assets/village_tile_set2/3.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 0.5,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "ABA"
+                }
+
+            },
+
+            {
+                "id": 4,
+                "image": "assets/village_tile_set2/4.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 5,
+                "image": "assets/village_tile_set2/5.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": true,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "ABA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 6,
+                "image": "assets/village_tile_set2/6.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 7,
+                "image": "assets/village_tile_set2/7.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 8,
+                "image": "assets/village_tile_set2/8.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 10,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            }
+        ]
+    }
+}
