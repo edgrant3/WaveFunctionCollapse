@@ -2,6 +2,10 @@
 
 This is a personal project inspired by a mention of this algorithm in some game dev/ computer graphics videos I stumbled upon. After watching [THIS VIDEO](https://youtu.be/rI_y2GAlQFM "The Coding Train") by The Coding Train, I decided to give it a shot! As a challenge I am currently not referencing any other code or implementation so I can practice my implementation of algorithms with only a high-level understanding of how I want them to work.
 
+V2 Video:
+
+[![V2 Wave Function Collapse](V2.PNG)](https://youtu.be/ALCYrKYscNM "V2 Wave Function Collapse")
+
 V1 Video:
 
 [![V1 Wave Function Collapse](V1.PNG)](https://youtube.com/shorts/JEJoIFABgiQ "V1 Wave Function Collapse")
