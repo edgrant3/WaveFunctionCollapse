@@ -6,8 +6,8 @@
             {
                 "id": 0,
                 "image": "assets/default_tile_set/0.png",
-                "rotations": [],
-                "patch_tile": false,
+                "rotations": [0],
+                "patch_tile": true,
                 "ignore": false,
                 "weight": 1,
                 "sockets": {
@@ -22,8 +22,8 @@
             {
                 "id": 1,
                 "image": "assets/default_tile_set/1.png",
-                "rotations": [1, 2, 3],
-                "patch_tile": false,
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": true,
                 "ignore": false,
                 "weight": 1,
                 "sockets": {
@@ -31,6 +31,54 @@
                     "E": "ABA",
                     "S": "AAA",
                     "W": "ABA"
+                }
+
+            },
+
+            {
+                "id": 2,
+                "image": "assets/default_tile_set/2.png",
+                "rotations": [0],
+                "patch_tile": true,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "ABA",
+                    "W": "ABA"
+                }
+
+            },
+
+            {
+                "id": 3,
+                "image": "assets/default_tile_set/3.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "ABA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 4,
+                "image": "assets/default_tile_set/4.png",
+                "rotations": [0, 1],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "ABA",
+                    "E": "AAA",
+                    "S": "ABA",
+                    "W": "AAA"
                 }
 
             }

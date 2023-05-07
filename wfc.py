@@ -23,7 +23,7 @@ class GraphicsWindow():
         self.width  = pix_width
         self.height = pix_height
         self.window = GraphWin("Wave Function Collapse", self.width, self.height)
-        self.window.setBackground("black")
+        self.window.setBackground("blue")
         self.grid_dims = grid_dims
 
     @classmethod
@@ -43,7 +43,7 @@ class direction():
         self.opp = opp
         self.idx = idx
 
-    def is_valid(self, idx, grid_dims):        
+    def is_inbounds(self, idx, grid_dims):   
         return (0 <= idx[0] + self.idx[0] < grid_dims[0]) and (0 <= idx[1] + self.idx[1] < grid_dims[1])
 
 ##############################################
@@ -51,17 +51,20 @@ class direction():
 class Tile():
     min_dim = 30
     img_size = None
-    directions = {"N": direction("N", "S", (-1, 0)),
-                  "E": direction("E", "W", ( 0, 1)),
-                  "S": direction("S", "N", ( 1, 0)),
-                  "W": direction("W", "E", ( 0,-1))}
+    # coords: (w, h), top left origin
+    directions = {"N": direction("N", "S", ( 0, -1 )),
+                  "E": direction("E", "W", ( 1,  0 )),
+                  "S": direction("S", "N", ( 0,  1 )),
+                  "W": direction("W", "E", (-1,  0 ))}
     
-    def __init__(self, id, image, img_size = None):
+    def __init__(self, id, image, weight = 1, ispatch = False):
         self.id = id
         self.image = image
-        self.img_size = img_size
         self.rot = 0
+        self.weight = weight
+        self.ispatch = ispatch
         self.sockets = {}
+        self.img_size = None
 
     def rotate(self, old, rot):
         rot = rot % 4
@@ -110,40 +113,49 @@ class Tile():
         path = os.path.join(path, "processed_images")
 
         tileset = json.loads(file_contents)["tileset"]
-        tiles   = []
+        tiles   = {}
+        tile_ids = []
+        patch_tile_ids = []
         for tile in tileset["tiles"]:
             if not tile["ignore"]:
-                # TODO: make weight affect selection probability
-                # instead of the inefficient method below of adding redundant tiles
-                for i in range(tile["weight"]):
-                    img = cls.resize_image(tile, path)
-                    new_tile = cls(tile["id"], img)
-                    new_tile.sockets = tile["sockets"]
-                    tiles.append(new_tile)
 
-                    for rot in tile["rotations"]:
-                        img = cls.create_rotated_image(new_tile, rot, path)
-                        rotated_tile = cls(new_tile.id, img)
-                        rotated_tile.sockets = copy.deepcopy(new_tile.sockets)
-                        rotated_tile.rot = rot
-                        rotated_tile.rotate(new_tile, rot)
-                        tiles.append(rotated_tile)
+                img = cls.resize_image(tile, path)
 
-        return tiles
+                new_tile = cls(tile["id"], img, tile["weight"], tile["patch_tile"])
+                new_tile.sockets = tile["sockets"]
+
+                for rot in tile["rotations"]:
+                    img = cls.create_rotated_image(new_tile, rot, path)
+                    rotated_tile = cls(new_tile.id, img)
+                    rotated_tile.sockets = copy.deepcopy(new_tile.sockets)
+                    rotated_tile.rot = rot
+                    rotated_tile.rotate(new_tile, rot)
+
+                    tiles[(rotated_tile.id, rotated_tile.rot)] = rotated_tile
+
+                    if new_tile.ispatch:
+                        patch_tile_ids.append((rotated_tile.id, rotated_tile.rot))
+                    else:
+                        tile_ids.append((rotated_tile.id, rotated_tile.rot))
+                        
+
+        return tiles, tile_ids, patch_tile_ids
 
 ##############################################
 
 class waveTile():
     def __init__(self, possible_tiles = [], collapsed = False):
-        self.collapsed = collapsed
+        self.collapsed = collapsed # a bit redundant, could just check if len(possible_tiles) == 1
         self.possible = possible_tiles
         
 ##############################################
 class WFC():
-    def __init__(self, grid_size, tiles, win = None):
+    def __init__(self, grid_size, tiles, tile_ids, patch_ids, win = None):
         self.grid_size = grid_size
-        self.tiles = tiles
-        self.n_tiles = len(self.tiles)
+        self.tiles = tiles #contains both normal tiles and patch tiles
+        self.tile_ids = tile_ids
+        self.patch_ids = patch_ids
+        self.n_tiles = len(self.tile_ids)
         if win:
             self.win = win
         else:
@@ -152,23 +164,44 @@ class WFC():
         self.tile_map    = {}  
         self.start_idx = (0,0)
     
+
     def update_neighbors(self, idx):
         collapsed_tile = self.tiles[self.tile_map[idx].possible[0]]
 
         for dir in ["N", "E", "S", "W"]:
-            if Tile.directions[dir].is_valid(idx, self.win.grid_dims):
+            if Tile.directions[dir].is_inbounds(idx, self.win.grid_dims):
                 socket  = collapsed_tile.sockets[dir]
                 opp     = Tile.directions[dir].opp
                 dir_idx = Tile.directions[dir].idx
                 neighbor_idx = (idx[0] + dir_idx[0], idx[1] + dir_idx[1])
 
                 if neighbor_idx not in self.tile_map:
-                    self.tile_map[neighbor_idx] = waveTile([*range(self.n_tiles)], False)
+                    # self.tile_map[neighbor_idx] = waveTile([*range(self.n_tiles)], False)
+                    self.tile_map[neighbor_idx] = waveTile(self.tile_ids, False)
 
                 if not self.tile_map[neighbor_idx].collapsed:
                     self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible if socket == self.tiles[x].sockets[opp]]
                     self.entropy_map[neighbor_idx] = len(self.tile_map[neighbor_idx].possible)
-        
+
+    def check_neighbors(self, idx, id):
+        candidate_tile = self.tiles[id]
+
+        for dir in ["N", "E", "S", "W"]:
+            if Tile.directions[dir].is_inbounds(idx, self.win.grid_dims):
+
+                socket  = candidate_tile.sockets[dir]
+                opp     = Tile.directions[dir].opp
+                dir_idx = Tile.directions[dir].idx
+                neighbor_idx = (idx[0] + dir_idx[0], idx[1] + dir_idx[1])
+
+                if neighbor_idx in self.tile_map:
+                    if self.tile_map[neighbor_idx].collapsed:
+                        if socket != self.tiles[self.tile_map[neighbor_idx].possible[0]].sockets[opp]:
+                            return False
+                    else:
+                        if socket not in [self.tiles[x].sockets[opp] for x in self.tile_map[neighbor_idx].possible]:
+                            return False
+        return True
 
     def collapse(self):
         min_entropy = np.min(self.entropy_map)
@@ -180,20 +213,49 @@ class WFC():
         if min_entropy == self.n_tiles:
             #first iteration
             tile_idx = self.start_idx #(0,0)
-            self.tile_map[tile_idx] = waveTile([1], True)
+            self.tile_map[tile_idx] = waveTile([(1,0)], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
 
         elif min_entropy == self.n_tiles + 1:
+            # All tiles have collapsed
             return tile_idx, True
         
         else :
             # print(len(self.tile_map[tile_idx].possible))
-            if len(self.tile_map[tile_idx].possible) != 0:
-                r2 = np.random.randint(0, len(self.tile_map[tile_idx].possible))
-                self.tile_map[tile_idx].possible = [self.tile_map[tile_idx].possible[r2]]
+            options = self.tile_map[tile_idx].possible
+            num_options = len(options)
+            if num_options != 0:
+                # if there is a viable tile, choose one at random from weighted distribution
+                prob = [self.tiles[t].weight for t in options] 
+                prob /= np.sum(prob)
+
+                options_idx = range(len(options))
+                chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
+                self.tile_map[tile_idx].possible = [options[chosen_idx]]
+                
+                # r2 = np.random.randint(0, len(options))
+                # self.tile_map[tile_idx].possible = [options[r2]]
             else:
-                ### TODO: remove this cheap hack
-                self.tile_map[tile_idx].possible = [0]
+                #never here...
+                # print("here")
+                viable_patches = []
+                for patch_id in self.patch_ids:
+                    if self.check_neighbors(tile_idx, patch_id):
+                        viable_patches.append(patch_id)
+
+                if viable_patches:
+                    if len(viable_patches) == 1:
+                        self.tile_map[tile_idx].possible = [viable_patches[0]]
+                    else:
+                        prob = [self.tiles[t].weight for t in viable_patches] 
+                        prob /= np.sum(prob)
+
+                        options_idx = range(len(viable_patches))
+                        chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
+                        self.tile_map[tile_idx].possible = [viable_patches[chosen_idx]]
+                else:
+                    print("\nNo viable patch Tiles: completely unsolvable!!!\n")
+                    self.tile_map[tile_idx].possible = [(0, 0)]
                 
             self.tile_map[tile_idx].collapsed = True
             self.entropy_map[tile_idx] = self.n_tiles + 1
@@ -203,8 +265,8 @@ class WFC():
     
     def draw(self, idx):
         img_path = self.tiles[self.tile_map[idx].possible[0]].image
-        new_tile_img = graphics.Image(Point(idx[1]*Tile.img_size[1] + Tile.img_size[1] / 2 - 1, 
-                                            idx[0]*Tile.img_size[0] + Tile.img_size[0] / 2 - 1), 
+        new_tile_img = graphics.Image(Point(idx[0]*Tile.img_size[0] + Tile.img_size[0] / 2, 
+                                            idx[1]*Tile.img_size[1] + Tile.img_size[1] / 2), 
                                             img_path)
         
         new_tile_img.draw(self.win.window)
@@ -222,10 +284,12 @@ class WFC():
 ##############################################
 
 # TODO LIST #
-# - Fix the window size needing to be square
-# - Add more sophisticated tile weighting (currently just adds redundant tiles)
 # - Add neighbor affinity mechanic to increase probability of certain tiles being neighbors
-# - Add patch tile functionality to handle unsolvable cases OR another solution
+# - - possibly through input image analysis
+
+# - DONE for this commit: Fix the window size needing to be square
+# - DONE for this commit: Add more sophisticated tile weighting (currently just adds redundant tiles)
+# - DONE for this commit: Add patch tile functionality to handle unsolvable cases OR another solution
 
 if __name__ == "__main__":
 
@@ -233,23 +297,25 @@ if __name__ == "__main__":
     default = "default_tile_set"
 
     Tile.min_dim = 30
-    t1 = Tile.generate_tiles_JSON(default)
-    t2 = Tile.generate_tiles_JSON(village)
+    t1_dict, t1, pt1 = Tile.generate_tiles_JSON(default)
+    print(t1)
+    t2_dict, t2, pt2 = Tile.generate_tiles_JSON(village)
     print("Village tile count: ", len(t2))
-    t_dict = {0: t1, 1: t2}
+    t_dict = {0: (t1_dict, t1, pt1), 1: (t2_dict, t2, pt2)}
 
-    wfc = WFC((25,25), t1)
+    # self, grid_size, tiles, tile_ids, patch_ids, win = None
+    wfc = WFC((40,30), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
 
     toggle = 0
     while(True):
         wfc.run()
 
-        # time.sleep(2.0)
-        wfc.win.window.getMouse()
+        time.sleep(2.0)
+        # wfc.win.window.getMouse()
         
         toggle = (toggle + 1) % 2
 
-        wfc = WFC(wfc.grid_size, t_dict[toggle], wfc.win)
+        wfc = WFC(wfc.grid_size, t_dict[toggle][0], t_dict[toggle][1], t_dict[toggle][2], wfc.win)
 
         wfc.win.clear()
 

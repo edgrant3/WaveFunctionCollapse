@@ -6,7 +6,7 @@
             {
                 "id": 0,
                 "image": "assets/village_tile_set/0.png",
-                "rotations": [],
+                "rotations": [0],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
@@ -22,7 +22,7 @@
             {
                 "id": 1,
                 "image": "assets/village_tile_set/1.png",
-                "rotations": [1],
+                "rotations": [0, 1],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 6,
@@ -38,7 +38,7 @@
             {
                 "id": 2,
                 "image": "assets/village_tile_set/2.png",
-                "rotations": [1, 2, 3],
+                "rotations": [0, 1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
@@ -54,7 +54,7 @@
             {
                 "id": 3,
                 "image": "assets/village_tile_set/3.png",
-                "rotations": [],
+                "rotations": [0],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
@@ -70,7 +70,7 @@
             {
                 "id": 4,
                 "image": "assets/village_tile_set/4.png",
-                "rotations": [1, 2, 3],
+                "rotations": [0, 1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
@@ -86,8 +86,8 @@
             {
                 "id": 5,
                 "image": "assets/village_tile_set/5.png",
-                "rotations": [1, 2, 3],
-                "patch_tile": false,
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": true,
                 "ignore": false,
                 "weight": 1,
                 "sockets": {
@@ -102,7 +102,7 @@
             {
                 "id": 6,
                 "image": "assets/village_tile_set/6.png",
-                "rotations": [1, 2, 3],
+                "rotations": [0, 1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
@@ -118,7 +118,7 @@
             {
                 "id": 7,
                 "image": "assets/village_tile_set/7.png",
-                "rotations": [1, 2, 3],
+                "rotations": [0, 1, 2, 3],
                 "patch_tile": false,
                 "ignore": false,
                 "weight": 1,
