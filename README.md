@@ -9,10 +9,16 @@ V1 Video:
 ### Current Status and Usage
 The final images are constructed from a small subset of images which I will call a "tileset". Small, pixel-perfect, and square images comprise the tileset and the user defines parameters such as sockets (strings respresenting a joining "key" along each edge of the tile), weighting, rotated variants, etc. in JSON files accompanying each tileset. `wfc.py` reads these JSON files to construct the tilset which the Wave Function Collapse algorithm then procedurally assembles into a larger image using matching rules between adjacent tile sockets.
 
+TODO:
+
+Implement a system to analyze example input images which can detect patterns of tile arrangement and thus build more complex adjacency probabilities and more sophisticated structure in the final image
+
 ### Definitions
 Tile: an image with encoded information about how it can be assembled
 
 Tileset: the full set of tiles, including all rotational variants
 
 Patch Tile: A tile that will only be inserted into the image if no regular tiles satisfy the constraints at that point in the image. They can address unsolvable regions of the image which occur infrequently
+
+
 
