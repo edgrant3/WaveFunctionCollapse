@@ -24,5 +24,9 @@ Tileset: the full set of tiles, including all rotational variants
 
 Patch Tile: A tile that will only be inserted into the image if no regular tiles satisfy the constraints at that point in the image. They can address unsolvable regions of the image which occur infrequently
 
+## Log (5/9/23 start)
+
+* 5/8/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
+
 
 

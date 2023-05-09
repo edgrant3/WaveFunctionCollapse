@@ -134,10 +134,10 @@
             {
                 "id": 8,
                 "image": "assets/village_tile_set2/8.png",
-                "rotations": [0, 1, 2, 3],
+                "rotations": [0],
                 "patch_tile": false,
                 "ignore": false,
-                "weight": 10,
+                "weight": 30,
                 "sockets": {
                     "N": "AAA",
                     "E": "AAA",

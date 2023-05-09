@@ -4,12 +4,14 @@ import PIL
 import json
 import os
 import copy
-from PIL import Image
+from PIL import ImageTk, Image
 import numpy as np
 import time
 
 import graphics
 from graphics import *
+
+from wfc_GUI import WFC_GUI
 
 
 ##############################################
@@ -56,9 +58,10 @@ class Tile():
                   "S": direction("S", "N", ( 0,  1 )),
                   "W": direction("W", "E", (-1,  0 ))}
     
-    def __init__(self, id, image, weight = 1, ispatch = False, img_size = None):
+    def __init__(self, id, image_path, weight = 1, ispatch = False, img_size = None):
         self.id = id
-        self.image = image
+        self.image_path = image_path
+        self.image = None
         self.rot = 0
         self.weight = weight
         self.ispatch = ispatch
@@ -84,6 +87,12 @@ class Tile():
             self.sockets["W"] = old.sockets["N"]
 
     @classmethod
+    def generate_error_tile(cls):
+        ET =  cls(-1, "assets/error_tile.png", 1, False)
+        ET.image = PIL.Image.open(ET.image_path)
+        cls.error_tile = ET
+    
+    @classmethod
     def resize_image(cls, tile, dir):
         pil_img = PIL.Image.open(tile["image"])
         scale = math.ceil( float(cls.min_dim) / float(min(pil_img.size)) )
@@ -97,13 +106,15 @@ class Tile():
 
     @classmethod
     def create_rotated_image(cls, tile, rot, dir):
-        pil_img = PIL.Image.open(tile.image)
+        pil_img = PIL.Image.open(tile.image_path)
         rotated_path = f'{dir}/{tile.id}_{rot}.png'
         pil_img.rotate(-90*rot).save(rotated_path)
         return rotated_path
 
     @classmethod
     def generate_tiles_JSON(cls, json_filename):
+        cls.generate_error_tile()
+
         path = f"assets/{json_filename}"
         with open(os.path.join(path, json_filename + ".json")) as file:
             file_contents = file.read()
@@ -117,16 +128,18 @@ class Tile():
         for tile in tileset["tiles"]:
             if not tile["ignore"]:
 
-                img, img_size = cls.resize_image(tile, path)
+                img_path, img_size = cls.resize_image(tile, path)
 
-                new_tile = cls(tile["id"], img, tile["weight"], tile["patch_tile"], img_size)
+                new_tile = cls(tile["id"], img_path, tile["weight"], tile["patch_tile"], img_size)
                 new_tile.sockets = tile["sockets"]
                 
                 for rot in tile["rotations"]:
-                    img = cls.create_rotated_image(new_tile, rot, path)
+                    img_path = cls.create_rotated_image(new_tile, rot, path)
                     # rotated_tile = cls(new_tile.id, img)
                     rotated_tile = copy.deepcopy(new_tile)
-                    rotated_tile.image = img
+                    rotated_tile.image_path = img_path
+                    rotated_tile.image = PIL.Image.open(img_path)
+                    # rotated_tile.image = ImageTk.PhotoImage(rotated_tile.image)
                     rotated_tile.rot = rot
                     rotated_tile.rotate(new_tile, rot)
 
@@ -137,6 +150,8 @@ class Tile():
                     else:
                         tile_ids.append((rotated_tile.id, rotated_tile.rot))
                         
+        cls.error_tile.sockets = tiles[(0, 0)].sockets
+        tiles[(-1, 0)] = cls.error_tile                        
 
         return tiles, tile_ids, patch_tile_ids
 
@@ -159,7 +174,8 @@ class WFC():
         if win:
             self.win = win
         else:
-            self.win = GraphicsWindow.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
+            # self.win = GraphicsWindow.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
+            self.win = WFC_GUI.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
 
         self.entropy_map = np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
         self.tile_map    = {}  
@@ -256,8 +272,8 @@ class WFC():
                         chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
                         self.tile_map[tile_idx].possible = [viable_patches[chosen_idx]]
                 else:
-                    print("\nNo viable patch Tiles: completely unsolvable!!!\n")
-                    self.tile_map[tile_idx].possible = [(0, 0)]
+                    # print("\nNo viable patch Tiles: completely unsolvable!!!\n")
+                    self.tile_map[tile_idx].possible = [(-1, 0)]#[(0, 0)]
                 
             self.tile_map[tile_idx].collapsed = True
             self.entropy_map[tile_idx] = self.n_tiles + 1
@@ -265,19 +281,32 @@ class WFC():
         self.update_neighbors(tile_idx)
         return tile_idx, False
     
-    def draw(self, idx):
-        img_path = self.tiles[self.tile_map[idx].possible[0]].image
+    def draw(self, idx, refresh = False):
+        pass
+        img = self.tiles[self.tile_map[idx].possible[0]].image
         size = self.tiles[self.tile_ids[0]].img_size
-        new_tile_img = graphics.Image(Point(idx[0]*size[0] + size[0] / 2 - size[0] % 2, 
-                                            idx[1]*size[1] + size[1] / 2 - size[0] % 2), 
-                                            img_path)
-        
-        new_tile_img.draw(self.win.window)
+        x = int(idx[0]*size[0])
+        y = int(idx[1]*size[1])
+        self.win.insert_image(img, x, y)
+        if refresh:
+            self.win.refresh_canvas()
+            self.win.root.update()
 
+        # new_tile_img = graphics.Image(Point(idx[0]*size[0] + size[0] / 2 - size[0] % 2, 
+        #                                     idx[1]*size[1] + size[1] / 2 - size[0] % 2), 
+        #                                     img_path)
+        # new_tile_img.draw(self.win.window)
+
+    def draw_all(self, refresh = False):
+        for idx in self.tile_map:
+            self.draw(idx, refresh)
+        self.win.refresh_canvas()
+        self.win.root.update()
+    
     def run(self, tileset = None):
         while True:
                 collapsed_idx, terminate = self.collapse()
-                self.draw(collapsed_idx)
+                # self.draw(collapsed_idx)
                 # time.sleep(0.00001)
                 if terminate:
                     break
@@ -294,6 +323,7 @@ class WFC():
 #       -- meaning in the ocean map, it solves the ocean first and then fills in islands,
 #       -- but the island borders in that case may be unsolvable!!!
 
+
 if __name__ == "__main__":
 
     village = "village_tile_set2"
@@ -301,6 +331,7 @@ if __name__ == "__main__":
     ocean  = "ocean_tile_set"
 
     Tile.min_dim = 15
+    Tile.generate_error_tile()
     t1_dict, t1, pt1 = Tile.generate_tiles_JSON(default)
     t2_dict, t2, pt2 = Tile.generate_tiles_JSON(village)
     t3_dict, t3, pt3 = Tile.generate_tiles_JSON(ocean)
@@ -310,24 +341,22 @@ if __name__ == "__main__":
               2: (t3_dict, t3, pt3)}
 
     # self, grid_size, tiles, tile_ids, patch_ids, win = None
-    wfc = WFC((45, 45), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
-
+    wfc = WFC((80, 60), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
     toggle = 0
+    wfc.run()
+    wfc.draw_all(refresh=False)
+    wfc.win.root.update()
     while(True):
         wfc.run()
-
-        # time.sleep(2.0)
-        wfc.win.window.getMouse()
+        wfc.win.wait_for_keypress()
+        wfc.win.clear_canvas()
+        wfc.draw_all(refresh=False)
         
         toggle = (toggle + 1) % len(t_dict.keys())
-
         wfc = WFC(wfc.grid_size, t_dict[toggle][0], t_dict[toggle][1], t_dict[toggle][2], wfc.win)
 
-        wfc.win.clear()
+        # wfc.win.clear_canvas()
+        # time.sleep(0.25)
 
-        time.sleep(0.25)
-
-    wfc.win.window.getMouse()
-    wfc.win.window.close()
 
 
