@@ -4,7 +4,7 @@ This is a personal project inspired by a mention of this algorithm in some game 
 
 V2 Video:
 
-[![V2 Wave Function Collapse](V2.PNG)](https://youtu.be/ALCYrKYscNM "V2 Wave Function Collapse")
+[![V2 Wave Function Collapse](V2.PNG)](https://youtu.be/H58Ugvk9nLc "V2 Wave Function Collapse")
 
 V1 Video:
 
