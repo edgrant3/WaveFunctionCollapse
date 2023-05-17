@@ -27,7 +27,7 @@ V1 Video:
 ## Current Status and Usage
 The final images are constructed from a small subset of images which I will call a "tileset". Small, pixel-perfect, and square images comprise the tileset and the user defines parameters such as sockets (strings respresenting a joining "key" along each edge of the tile), weighting, rotated variants, etc. in JSON files accompanying each tileset. `wfc.py` reads these JSON files to construct the tilset which the Wave Function Collapse algorithm then procedurally assembles into a larger image using matching rules between adjacent tile sockets.
 
-Execute `wfc.py` in terminal and press ESC key to avance through the 4 current tilesets.
+Execute `wfc.py` in terminal (I'm running Python version 3.8.7) and press ESC key to avance through the 4 current tilesets.
 
 TODO:
 
