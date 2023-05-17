@@ -1,6 +1,15 @@
 # WaveFunctionCollapse
 
 This is a personal project inspired by a mention of this algorithm in some game dev/ computer graphics videos I stumbled upon. After watching [THIS VIDEO](https://youtu.be/rI_y2GAlQFM "The Coding Train") by The Coding Train, I decided to give it a shot! As a challenge I am currently not referencing any other code or implementation so I can practice my implementation of algorithms with only a high-level understanding of how I want them to work.
+V3 Result Images:
+
+![](smallmap1.png)
+
+![](smallmap2.png)
+
+![](smallmap3.png)
+
+![](smallmap4.png)
 
 V2 Video:
 

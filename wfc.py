@@ -12,7 +12,7 @@ from wfc_GUI import WFC_GUI
 
 ##############################################
 
-class direction():
+class Direction():
     def __init__(self, dir, opp, idx = (0,0)):
         self.dir = dir
         self.opp = opp
@@ -27,10 +27,10 @@ class Tile():
     min_dim = 15
     tile_scaling = 1
     # coords: (w, h), top left origin
-    directions = {"N": direction("N", "S", ( 0, -1 )),
-                  "E": direction("E", "W", ( 1,  0 )),
-                  "S": direction("S", "N", ( 0,  1 )),
-                  "W": direction("W", "E", (-1,  0 ))}
+    directions = {"N": Direction("N", "S", ( 0, -1 )),
+                  "E": Direction("E", "W", ( 1,  0 )),
+                  "S": Direction("S", "N", ( 0,  1 )),
+                  "W": Direction("W", "E", (-1,  0 ))}
     
     def __init__(self, id, image_path, weight = 1, ispatch = False, img_size = None):
         self.id = id
@@ -302,7 +302,7 @@ class WFC():
 if __name__ == "__main__":
 
     # grid_dims = (500, 300) # ~ 1min per solve
-    grid_dims = (100, 70) # < 1s per solve
+    grid_dims = (80, 55) # < 1s per solve
     # grid_dims = (45, 30)
     Tile.tile_scaling = 1
     run_animated = False
