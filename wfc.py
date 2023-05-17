@@ -290,6 +290,7 @@ class WFC():
 ##############################################
 
 # TODO LIST #
+# - Refactor collapse()
 # - Fix GUI keypress callback to accept input other than Esc
 # - Add neighbor affinity mechanic to increase probability of certain tiles being neighbors
 # - - possibly through input image analysis
@@ -302,9 +303,9 @@ class WFC():
 if __name__ == "__main__":
 
     # grid_dims = (500, 300) # ~ 1min per solve
-    grid_dims = (80, 55) # < 1s per solve
-    # grid_dims = (45, 30)
-    Tile.tile_scaling = 1
+    # grid_dims = (80, 55) # < 1s per solve
+    grid_dims = (45, 30)
+    Tile.tile_scaling = 2
     run_animated = False
     save_result = False
 
@@ -339,7 +340,9 @@ if __name__ == "__main__":
         if first_run:
             first_run = False
         else:
-            wfc.win.wait_for_keypress()
+            # wfc.win.wait_for_keypress()
+            # time.sleep(1.25)
+            pass
         wfc.draw_all(refresh=run_animated)
 
         if save_result:

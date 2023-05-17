@@ -11,6 +11,10 @@ V3 Result Images:
 
 ![](smallmap4.png)
 
+V3 Video:
+
+[![V3 Wave Function Collapse](V3.PNG)](https://youtu.be/Umz1vGyT-Lg "V3 Wave Function Collapse")
+
 V2 Video:
 
 [![V2 Wave Function Collapse](V2.PNG)](https://youtu.be/H58Ugvk9nLc "V2 Wave Function Collapse")
