@@ -8,34 +8,7 @@ from PIL import ImageTk, Image
 import numpy as np
 import time
 
-import graphics
-from graphics import *
-
 from wfc_GUI import WFC_GUI
-
-
-##############################################
-class GraphicsWindow():
-    max_width = 2000
-    max_height = 2000
-    min_width = 500
-    min_height = 500
-
-    def __init__(self, pix_width, pix_height, grid_dims = None):
-        self.width  = pix_width
-        self.height = pix_height
-        self.window = GraphWin("Wave Function Collapse", self.width, self.height)
-        self.window.setBackground("red")
-        self.grid_dims = grid_dims
-
-    @classmethod
-    def fromTileGrid(cls, tile_dims, grid_dims):
-        return cls(tile_dims[0] * grid_dims[0], tile_dims[1] * grid_dims[1], grid_dims)
-    
-    def clear(self):
-        for item in self.window.items[:]:
-            item.undraw()
-        self.window.update()
 
 ##############################################
 
@@ -51,7 +24,8 @@ class direction():
 ##############################################
 
 class Tile():
-    min_dim = 30
+    min_dim = 15
+    tile_scaling = 1
     # coords: (w, h), top left origin
     directions = {"N": direction("N", "S", ( 0, -1 )),
                   "E": direction("E", "W", ( 1,  0 )),
@@ -95,7 +69,7 @@ class Tile():
     @classmethod
     def resize_image(cls, tile, dir):
         pil_img = PIL.Image.open(tile["image"])
-        scale = math.ceil( float(cls.min_dim) / float(min(pil_img.size)) )
+        scale = cls.tile_scaling
         pil_img = pil_img.resize((scale*pil_img.size[0], scale*pil_img.size[1]), 
                                   resample = PIL.Image.NEAREST)
 
@@ -171,16 +145,29 @@ class WFC():
         self.patch_ids = patch_ids
         self.n_tiles = len(self.tile_ids)
 
+        self.tile_size = self.tiles[self.tile_ids[0]].img_size
+        self.win_size = (self.tile_size[0] * self.grid_size[0], self.tile_size[1] * self.grid_size[1])
+
         if win:
             self.win = win
         else:
-            # self.win = GraphicsWindow.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
             self.win = WFC_GUI.fromTileGrid(self.tiles[self.tile_ids[0]].img_size, self.grid_size)
 
         self.entropy_map = np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
         self.tile_map    = {}  
         self.start_idx = (0,0)
+        self.start_tile = (0,0)
     
+    def enforce_region(self, region, tile_id):
+        region_ws = range(region[0], region[2])
+        region_hs = range(region[1], region[3])
+        for w_idx in region_ws:
+            for h_idx in region_hs:
+                idx = (w_idx, h_idx)
+                self.tile_map[idx] = waveTile((tile_id, 0), True)
+                self.entropy_map[idx] = self.n_tiles + 1
+                self.update_neighbors(idx)
+
 
     def update_neighbors(self, idx):
         collapsed_tile = self.tiles[self.tile_map[idx].possible[0]]
@@ -193,7 +180,6 @@ class WFC():
                 neighbor_idx = (idx[0] + dir_idx[0], idx[1] + dir_idx[1])
 
                 if neighbor_idx not in self.tile_map:
-                    # self.tile_map[neighbor_idx] = waveTile([*range(self.n_tiles)], False)
                     self.tile_map[neighbor_idx] = waveTile(self.tile_ids, False)
 
                 if not self.tile_map[neighbor_idx].collapsed:
@@ -230,7 +216,7 @@ class WFC():
         if min_entropy == self.n_tiles:
             #first iteration
             tile_idx = self.start_idx #(0,0)
-            self.tile_map[tile_idx] = waveTile([(0,0)], True)
+            self.tile_map[tile_idx] = waveTile([self.start_tile], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
 
         elif min_entropy == self.n_tiles + 1:
@@ -238,9 +224,7 @@ class WFC():
             return tile_idx, True
         
         else :
-            # print(len(self.tile_map[tile_idx].possible))
             options = self.tile_map[tile_idx].possible
-            # print(options)
             num_options = len(options)
             if num_options != 0:
                 # if there is a viable tile, choose one at random from weighted distribution
@@ -250,12 +234,8 @@ class WFC():
                 options_idx = range(len(options))
                 chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
                 self.tile_map[tile_idx].possible = [options[chosen_idx]]
-                
-                # r2 = np.random.randint(0, len(options))
-                # self.tile_map[tile_idx].possible = [options[r2]]
+
             else:
-                #never here...
-                # print("here")
                 viable_patches = []
                 for patch_id in self.patch_ids:
                     if self.check_neighbors(tile_idx, patch_id):
@@ -272,8 +252,8 @@ class WFC():
                         chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
                         self.tile_map[tile_idx].possible = [viable_patches[chosen_idx]]
                 else:
-                    # print("\nNo viable patch Tiles: completely unsolvable!!!\n")
-                    self.tile_map[tile_idx].possible = [(-1, 0)]#[(0, 0)]
+                    # No viable tiles or patches
+                    self.tile_map[tile_idx].possible = [(-1, 0)] # -1 is the error tile
                 
             self.tile_map[tile_idx].collapsed = True
             self.entropy_map[tile_idx] = self.n_tiles + 1
@@ -292,12 +272,8 @@ class WFC():
             self.win.refresh_canvas()
             self.win.root.update()
 
-        # new_tile_img = graphics.Image(Point(idx[0]*size[0] + size[0] / 2 - size[0] % 2, 
-        #                                     idx[1]*size[1] + size[1] / 2 - size[0] % 2), 
-        #                                     img_path)
-        # new_tile_img.draw(self.win.window)
-
     def draw_all(self, refresh = False):
+        self.win.create_canvas(self.win_size[0], self.win_size[1])
         for idx in self.tile_map:
             self.draw(idx, refresh)
         self.win.refresh_canvas()
@@ -306,16 +282,15 @@ class WFC():
     def run(self, tileset = None):
         while True:
                 collapsed_idx, terminate = self.collapse()
-                # self.draw(collapsed_idx)
-                # time.sleep(0.00001)
                 if terminate:
                     break
-
+    
 ##############################################
 #############------ MAIN ------###############
 ##############################################
 
 # TODO LIST #
+# - Fix GUI keypress callback to accept input other than Esc
 # - Add neighbor affinity mechanic to increase probability of certain tiles being neighbors
 # - - possibly through input image analysis
 
@@ -326,37 +301,51 @@ class WFC():
 
 if __name__ == "__main__":
 
+    # grid_dims = (500, 300) # ~ 1min per solve
+    grid_dims = (100, 70) # < 1s per solve
+    # grid_dims = (45, 30)
+    Tile.tile_scaling = 1
+    run_animated = False
+    save_result = False
+
     village = "village_tile_set2"
     default = "default_tile_set"
     ocean  = "ocean_tile_set"
+    seaweed  = "seaweed_set"
 
-    Tile.min_dim = 15
     Tile.generate_error_tile()
     t1_dict, t1, pt1 = Tile.generate_tiles_JSON(default)
     t2_dict, t2, pt2 = Tile.generate_tiles_JSON(village)
     t3_dict, t3, pt3 = Tile.generate_tiles_JSON(ocean)
+    t4_dict, t4, pt4 = Tile.generate_tiles_JSON(seaweed)
 
     t_dict = {0: (t1_dict, t1, pt1), 
               1: (t2_dict, t2, pt2),
-              2: (t3_dict, t3, pt3)}
-
-    # self, grid_size, tiles, tile_ids, patch_ids, win = None
-    wfc = WFC((80, 60), tiles=t1_dict, tile_ids=t1, patch_ids = pt1)
+              2: (t3_dict, t3, pt3),
+              3: (t4_dict, t4, pt4)}
+    
     toggle = 0
-    wfc.run()
-    wfc.draw_all(refresh=False)
-    wfc.win.root.update()
+    wfc = WFC(grid_dims, t_dict[toggle][0], t_dict[toggle][1], t_dict[toggle][2])   
+    first_run = True
     while(True):
-        wfc.run()
-        wfc.win.wait_for_keypress()
-        wfc.win.clear_canvas()
-        wfc.draw_all(refresh=False)
         
-        toggle = (toggle + 1) % len(t_dict.keys())
         wfc = WFC(wfc.grid_size, t_dict[toggle][0], t_dict[toggle][1], t_dict[toggle][2], wfc.win)
+        
+        if toggle == 3:
+            seabed_region = (0, grid_dims[1]-1, grid_dims[0], grid_dims[1])
+            wfc.enforce_region(seabed_region, (5,0))
 
-        # wfc.win.clear_canvas()
-        # time.sleep(0.25)
+        wfc.run()
+        if first_run:
+            first_run = False
+        else:
+            wfc.win.wait_for_keypress()
+        wfc.draw_all(refresh=run_animated)
+
+        if save_result:
+            wfc.win.img.save("output.png")
+
+        toggle = (toggle + 1) % len(t_dict.keys())
 
 
 
