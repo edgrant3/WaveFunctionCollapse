@@ -213,50 +213,52 @@ class WFC():
         r1 = np.random.randint(0, len(min_idxs[0]))
         tile_idx = (min_idxs[0][r1], min_idxs[1][r1])
 
+        if min_entropy == self.n_tiles + 1:
+            # All tiles have collapsed
+            return tile_idx, True
+    
         if min_entropy == self.n_tiles:
-            #first iteration
+            # First iteration
             tile_idx = self.start_idx #(0,0)
             self.tile_map[tile_idx] = waveTile([self.start_tile], True)
             self.entropy_map[tile_idx] = self.n_tiles + 1
+            self.update_neighbors(tile_idx)
+            return tile_idx, False
 
-        elif min_entropy == self.n_tiles + 1:
-            # All tiles have collapsed
-            return tile_idx, True
-        
-        else :
-            options = self.tile_map[tile_idx].possible
-            num_options = len(options)
-            if num_options != 0:
-                # if there is a viable tile, choose one at random from weighted distribution
-                prob = [self.tiles[t].weight for t in options] 
-                prob /= np.sum(prob)
-                    
-                options_idx = range(len(options))
-                chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
-                self.tile_map[tile_idx].possible = [options[chosen_idx]]
-
-            else:
-                viable_patches = []
-                for patch_id in self.patch_ids:
-                    if self.check_neighbors(tile_idx, patch_id):
-                        viable_patches.append(patch_id)
-
-                if viable_patches:
-                    if len(viable_patches) == 1:
-                        self.tile_map[tile_idx].possible = [viable_patches[0]]
-                    else:
-                        prob = [self.tiles[t].weight for t in viable_patches] 
-                        prob /= np.sum(prob)
-
-                        options_idx = range(len(viable_patches))
-                        chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
-                        self.tile_map[tile_idx].possible = [viable_patches[chosen_idx]]
-                else:
-                    # No viable tiles or patches
-                    self.tile_map[tile_idx].possible = [(-1, 0)] # -1 is the error tile
+        # Nominal Case
+        options = self.tile_map[tile_idx].possible
+        num_options = len(options)
+        if num_options != 0:
+            # if there is a viable tile, choose one at random from weighted distribution
+            prob = [self.tiles[t].weight for t in options] 
+            prob /= np.sum(prob)
                 
-            self.tile_map[tile_idx].collapsed = True
-            self.entropy_map[tile_idx] = self.n_tiles + 1
+            options_idx = range(len(options))
+            chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
+            self.tile_map[tile_idx].possible = [options[chosen_idx]]
+
+        else:
+            viable_patches = []
+            for patch_id in self.patch_ids:
+                if self.check_neighbors(tile_idx, patch_id):
+                    viable_patches.append(patch_id)
+
+            if viable_patches:
+                if len(viable_patches) == 1:
+                    self.tile_map[tile_idx].possible = [viable_patches[0]]
+                else:
+                    prob = [self.tiles[t].weight for t in viable_patches] 
+                    prob /= np.sum(prob)
+
+                    options_idx = range(len(viable_patches))
+                    chosen_idx = np.random.choice(options_idx, 1, p=prob)[0]
+                    self.tile_map[tile_idx].possible = [viable_patches[chosen_idx]]
+            else:
+                # No viable tiles or patches
+                self.tile_map[tile_idx].possible = [(-1, 0)] # -1 is the error tile
+            
+        self.tile_map[tile_idx].collapsed = True
+        self.entropy_map[tile_idx] = self.n_tiles + 1
 
         self.update_neighbors(tile_idx)
         return tile_idx, False
@@ -303,9 +305,9 @@ class WFC():
 if __name__ == "__main__":
 
     # grid_dims = (500, 300) # ~ 1min per solve
-    # grid_dims = (80, 55) # < 1s per solve
-    grid_dims = (45, 30)
-    Tile.tile_scaling = 2
+    grid_dims = (80, 55) # < 1s per solve
+    # grid_dims = (45, 30)
+    Tile.tile_scaling = 1
     run_animated = False
     save_result = False
 
@@ -340,9 +342,9 @@ if __name__ == "__main__":
         if first_run:
             first_run = False
         else:
-            # wfc.win.wait_for_keypress()
+            wfc.win.wait_for_keypress()
             # time.sleep(1.25)
-            pass
+            # pass
         wfc.draw_all(refresh=run_animated)
 
         if save_result:
