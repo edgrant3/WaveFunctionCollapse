@@ -54,5 +54,7 @@ Patch Tile: A tile that will only be inserted into the image if no regular tiles
 
 * 5/17/2023: Augment seaweed tileset to be fully solvable. Repair `enforce_region()` function to enable setting a rectangular region of the map to a specific tile. Misc. bugfixes highlighted by trying to implement the seaweed tileset.
 
+* 5/24/2023: Build skeleton for template image GUI in separate tkinter-based class.
+
 
 
