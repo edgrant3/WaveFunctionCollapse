@@ -16,6 +16,10 @@ V3 Video:
 
 [![V3 Wave Function Collapse](V3.PNG)](https://youtu.be/Umz1vGyT-Lg "V3 Wave Function Collapse")
 
+Currently, I'm working on building a GUI to construct template images which will then be processed and used to determine adjacency probabilities for all tiles such that the final result contains better patterns and structure. The GUI produced by `template_image_GUI` already has many features implemented and currently looks like this:
+
+![](InputImageGUI_V1.PNG)
+
 V2 Video:
 
 [![V2 Wave Function Collapse](V2.PNG)](https://youtu.be/H58Ugvk9nLc "V2 Wave Function Collapse")
