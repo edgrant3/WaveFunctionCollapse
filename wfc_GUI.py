@@ -39,7 +39,7 @@ class WFC_GUI():
             self.canvas.destroy()
         canvas_size = (w + int(w*self.canvas_padding), h + int(h*self.canvas_padding))
         self.canvas = tk.Canvas(self.root, width = canvas_size[0], height = canvas_size[1], background="white")
-        self.canvas.pack()
+        self.canvas.pack(anchor=tk.CENTER)
 
         self.img = Image.new("RGB", (w, h), self.background_color)
         self.tk_img = ImageTk.PhotoImage(self.img, master = self.canvas)
