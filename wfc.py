@@ -37,6 +37,7 @@ class Tile():
         self.image_path = image_path
         self.image = None
         self.rot = 0
+        self.num_rotations = 0
         self.weight = weight
         self.ispatch = ispatch
         self.sockets = {}
@@ -106,6 +107,7 @@ class Tile():
 
                 new_tile = cls(tile["id"], img_path, tile["weight"], tile["patch_tile"], img_size)
                 new_tile.sockets = tile["sockets"]
+                new_tile.num_rotations = len(tile["rotations"])
                 
                 for rot in tile["rotations"]:
                     img_path = cls.create_rotated_image(new_tile, rot, path)

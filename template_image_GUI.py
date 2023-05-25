@@ -8,7 +8,7 @@ import os
 from wfc import Tile
 
 class TemplateBuilder_GUI():
-    def __init__(self, grid_dims=(12,12), scale=4):
+    def __init__(self, grid_dims=(15,15), scale=3):
         # Create the root window
         self.root = tk.Tk()
         self.root.title("Template Image Builder")
@@ -24,36 +24,9 @@ class TemplateBuilder_GUI():
 
         # Create widgets
         self.allpad = 10
-
-        self.default_img_color = (255, 0, 255)
-        self.canvas_color = "white"
         self.canvas_pad = 5
-        self.canvas = None
-        self.create_canvas()
-
-        self.show_grid = True
-        self.draw_grid()
-
-        self.control_panel = None
-        self.create_control_panel()
-        
-        self.tileframe = None
-        self.tileframe_canvas = None
-        self.create_tileframe()
-
-        self.selected_tile_view = None
-        self.create_selected_tile_view()
-
-        self.arrange_widgets()
-
-        # Bind events
-        self.canvas.bind("<Button-1>", self.handle_canvas_click)
-
-
-        # Set up member variables
-        # 1) selected regions of GUI
-        self.selected_grid_idx = None
-        self.selected_tile = None
+        self.default_img_color = (255, 0, 255)
+        self.create_widgets()
 
         # 2) misc. data
         self.encoded_template = {}
@@ -63,10 +36,34 @@ class TemplateBuilder_GUI():
         return (grid_idx[0] * self.tile_dims[0] + self.canvas_pad*use_canvas_pad, 
                 grid_idx[1] * self.tile_dims[1] + self.canvas_pad*use_canvas_pad)
     
-    def pixel_to_grid(self, pixel):
-        return (pixel[0] // (self.tile_dims[0]), 
-                pixel[1] // (self.tile_dims[1]))
+    def pixel_to_grid(self, pixel, use_canvas_pad=True):
+        return ((pixel[0] - self.canvas_pad*use_canvas_pad) // (self.tile_dims[0]), 
+                (pixel[1] - self.canvas_pad*use_canvas_pad) // (self.tile_dims[1]))
 
+    def create_widgets(self):
+        self.canvas = None
+        self.control_panel = None
+        self.tileframe = None
+        self.tileframe_canvas = None
+        self.selected_tile_view = None
+        self.create_canvas()
+        self.create_control_panel()
+        self.create_tileframe()
+        self.create_selected_tile_view()
+
+        self.show_grid = True
+        self.draw_grid()
+
+        self.arrange_widgets()
+
+        self.hovered_widget = None
+        self.bind_events()
+
+        # Set up member variables
+        # 1) selected regions of GUI
+        self.selected_grid_idx = None
+        self.selected_tile = None
+    
     def arrange_widgets(self):
         # Arrange widgets using grid layout manager
         self.canvas.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
@@ -88,7 +85,7 @@ class TemplateBuilder_GUI():
         self.h = self.tile_dims[1] * self.grid_dims[1]
 
         self.canvas = tk.Canvas(self.root, width = self.w, height = self.h, 
-                                background=self.canvas_color, borderwidth=self.canvas_pad, highlightthickness=0)
+                                background="white", borderwidth=self.canvas_pad, highlightthickness=0)
 
         self.img = Image.new("RGB", (self.w, self.h), self.default_img_color)
         self.tk_img = ImageTk.PhotoImage(self.img, master = self.canvas)
@@ -102,14 +99,14 @@ class TemplateBuilder_GUI():
 
         self.control_panel = tk.Frame(self.root, background="white", borderwidth=0, highlightthickness=0)
 
-        self.grid_toggle_button = tk.Button(self.control_panel, text="Hide Grid", command=self.toggle_grid)
-        self.grid_toggle_button.grid(row=0, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.grid_toggle_button = tk.Button(self.control_panel, text="Hide Grid", command=self.handle_toggle_grid)
+        self.grid_toggle_button.grid(row=0, column=1, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
         self.tileset_load_button = tk.Button(self.control_panel, text="Load Tileset", command=self.update_tileset)
-        self.tileset_load_button.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.tileset_load_button.grid(row=0, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
         self.tileset_label = tk.Label(self.control_panel, text=self.tileset_name, bg="white", fg="blue", font=("Calibri", 16))
-        self.tileset_label.grid(row=2, column=0, padx=self.allpad, pady=self.allpad, sticky=S, columnspan=2)
+        self.tileset_label.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=S, columnspan=2)
 
     def create_tileframe(self):
 
@@ -139,18 +136,19 @@ class TemplateBuilder_GUI():
     def populate_tileframe(self):
         self.tileframe_buttons = []
         # if images have been loaded
-        for i, tile in enumerate(self.tileset.values()):
+        i = 0
+        for tile in self.tileset.values():
+            if tile.rot != 0:
+                continue
             image = Image.open(tile.image_path)
-            # resized_image = image.resize((self.tile_dims[0], 
-            #                               self.tile_dims[1]), 
-            #                               resample = Image.NEAREST)
             button_image = ImageTk.PhotoImage(image)#, master = self.tileframe_inner)
 
-            button = tk.Button(self.tileframe_inner, image=button_image, command=lambda id=(tile.id, tile.rot): self.tile_button_clicked(id))#, command=lambda tile=tile: self.select_tile(tile))
+            button = tk.Button(self.tileframe_inner, image=button_image, command=lambda id=(tile.id, tile.rot): self.handle_tile_button_clicked(id))#, command=lambda tile=tile: self.select_tile(tile))
             button.grid(row=i // 2, column=i%2)
             self.tileframe_buttons.append(button)
 
             button.image = button_image
+            i += 1
 
     def create_selected_tile_view(self):
         
@@ -170,9 +168,9 @@ class TemplateBuilder_GUI():
         label = tk.Label(self.selected_tile_view, text="Selected Tile", bg="white")
         label.grid(row=1, column=0)
 
-        self.tile_button_clicked(list(self.tileset.keys())[0])
+        self.handle_tile_button_clicked(list(self.tileset.keys())[0])
 
-    def tile_button_clicked(self, tile_id):
+    def handle_tile_button_clicked(self, tile_id):
         print(f"Selected tile: {tile_id}")
         self.selected_tile = tile_id
         image = Image.open(self.tileset[self.selected_tile].image_path)
@@ -183,32 +181,6 @@ class TemplateBuilder_GUI():
 
         self.selected_tile_canvas.itemconfig(self.tile_viewimg_id, image=self.selected_tile_img)
         
-    def draw_grid(self, color="gray"):
-
-        self.canvas.delete("grid")
-
-        x_spacing = self.tile_dims[0]
-        y_spacing = self.tile_dims[1]
-
-        for x in range(x_spacing, self.tk_img.width(), x_spacing):
-            self.canvas.create_line(x, 0, x, self.tk_img.height(), fill=color, tag="grid")
-
-        for y in range(y_spacing, self.tk_img.height(), y_spacing):
-            self.canvas.create_line(0, y, self.tk_img.width(), y, fill=color, tag="grid")
-
-        self.canvas.move("grid", self.canvas_pad, self.canvas_pad)
-
-    def toggle_grid(self):
-        self.show_grid = not self.show_grid
-
-        grid_button_txt = "Hide Grid" if self.show_grid else "Show Grid"
-        self.grid_toggle_button.config(text=grid_button_txt)
-
-        if self.show_grid:
-            self.draw_grid()
-        else:
-            self.canvas.delete("grid")
-
     def update_tileset(self):
         print(f"\nLoading tileset...")
         path = tk.filedialog.askdirectory(initialdir = os.getcwd(), title = "Select tileset directory")
@@ -223,33 +195,8 @@ class TemplateBuilder_GUI():
         self.tileset_name = folder
         self.tileset_label.config(text=self.tileset_name)
         self.load_tileset()
-        self.create_canvas()
-        self.create_tileframe()
-        self.create_selected_tile_view()
-        self.arrange_widgets()
-        self.show_grid = True
-        self.draw_grid()
-
-        self.canvas.bind("<Button-1>", self.handle_canvas_click)
-        
-    def handle_canvas_click(self, event):
-        selected = self.pixel_to_grid((event.x, event.y))
-        self.highlight_selected_square(selected)
-        if self.selected_tile is not None and self.selected_grid_idx is not None:
-            self.insert_tile_image(self.selected_grid_idx, self.selected_tile)
-
-    def highlight_selected_square(self, selected):
-        self.canvas.delete("square_highlight")
-        if selected == self.selected_grid_idx and self.selected_tile == self.encoded_template[selected]:
-            self.selected_grid_idx = None
-        else:
-            self.selected_grid_idx = selected
-            print(f"Selected grid index: {self.selected_grid_idx}")
-
-            x, y = self.grid_to_pixel(self.selected_grid_idx, use_canvas_pad=True)
-            self.canvas.create_rectangle(x, y, x + self.tile_dims[0], y + self.tile_dims[1], 
-                                        outline="cyan", tag="square_highlight")
-
+        self.create_widgets()
+            
     def initialize_encoded_template(self, grid_dims):
         for x in range(grid_dims[0]):
             for y in range(grid_dims[1]):
@@ -263,6 +210,109 @@ class TemplateBuilder_GUI():
     def refresh_canvas(self):
         self.tk_img = ImageTk.PhotoImage(self.img)
         self.canvas.itemconfig(self.img_id, image=self.tk_img)
+
+    def bind_events(self):
+        self.canvas.bind("<Button-1>", self.handle_canvas_click)
+        self.root.bind("<Escape>", self.handle_close_window)
+        self.root.bind("g", self.handle_toggle_grid)
+        self.root.bind("q", self.handle_rotate_tile_ccw)
+        self.root.bind("e", self.handle_rotate_tile_cw)
+        self.canvas.bind("<Motion>", self.handle_mouse_motion)
+        self.canvas.bind("<Leave>", self.handle_leave_canvas)
+        # self.root.bind("<Control-s>", self.handle_save_template)
+
+    def handle_canvas_click(self, event):
+        if self.selected_tile is not None and self.selected_grid_idx is not None:
+            self.insert_tile_image(self.selected_grid_idx, self.selected_tile)
+
+    def handle_toggle_grid(self, event=None):
+        self.show_grid = not self.show_grid
+
+        grid_button_txt = "Hide Grid" if self.show_grid else "Show Grid"
+        self.grid_toggle_button.config(text=grid_button_txt)
+
+        self.draw_grid() if self.show_grid else self.canvas.delete("grid")
+
+    def handle_close_window(self, event):
+        self.root.destroy()
+
+    def handle_mouse_motion(self, event):
+        idx = self.pixel_to_grid((event.x, event.y))
+        if min(idx) < 0 or idx[0] >= self.grid_dims[0] or idx[1] >= self.grid_dims[1]:
+            return
+        
+        if self.selected_grid_idx != idx:
+            self.show_preview_square(idx)
+            self.highlight_hovered_square(idx)
+            self.selected_grid_idx = idx
+
+    def handle_leave_canvas(self, event):
+        self.canvas.delete("square_highlight")
+        self.canvas.delete("preview_square")
+        self.selected_grid_idx = None
+
+    def handle_rotate_tile_ccw(self, event):
+        self.handle_rotate_tile(-1)
+
+    def handle_rotate_tile_cw(self, event):
+        self.handle_rotate_tile(1)
+
+    def handle_rotate_tile(self, dir):
+        if self.selected_tile is None:
+            return
+        
+        tile = self.tileset[self.selected_tile]
+
+        if tile.num_rotations == 0:
+            return
+
+        new_rot = (tile.rot + dir) % (tile.num_rotations)
+        self.selected_tile = (self.selected_tile[0], new_rot)
+        self.handle_tile_button_clicked(self.selected_tile)
+        self.update_preview_img()
+
+    def show_preview_square(self, hover_idx):
+        
+        if self.selected_tile == None:
+            return
+        
+        self.canvas.delete("preview_square")
+        x, y = self.grid_to_pixel(hover_idx, use_canvas_pad=True)
+        image = self.tileset[self.selected_tile].image
+        image = image.convert("RGBA")
+        image.putalpha(200)
+        self.preview_img = ImageTk.PhotoImage(image)
+        self.preview_id = self.canvas.create_image(x, y, anchor=NW, image=self.preview_img, tag="preview_square")
+
+    def update_preview_img(self):
+        image = self.tileset[self.selected_tile].image
+        image = image.convert("RGBA")
+        image.putalpha(200)
+        self.preview_img = ImageTk.PhotoImage(image)
+        self.canvas.itemconfig(self.preview_id, image=self.preview_img)
+
+    def highlight_hovered_square(self, hover_idx):
+        self.canvas.delete("square_highlight")
+        self.selected_grid_idx = hover_idx
+
+        x, y = self.grid_to_pixel(self.selected_grid_idx, use_canvas_pad=True)
+        self.canvas.create_rectangle(x, y, x + self.tile_dims[0], y + self.tile_dims[1], 
+                                    outline="cyan", tag="square_highlight")
+
+    def draw_grid(self, color="gray"):
+
+        self.canvas.delete("grid")
+
+        x_spacing = self.tile_dims[0]
+        y_spacing = self.tile_dims[1]
+
+        for x in range(x_spacing, self.tk_img.width(), x_spacing):
+            self.canvas.create_line(x, 0, x, self.tk_img.height(), fill=color, tag="grid")
+
+        for y in range(y_spacing, self.tk_img.height(), y_spacing):
+            self.canvas.create_line(0, y, self.tk_img.width(), y, fill=color, tag="grid")
+
+        self.canvas.move("grid", self.canvas_pad, self.canvas_pad)
 
 if __name__ == "__main__":
     gui = TemplateBuilder_GUI()
