@@ -4,6 +4,7 @@ from tkinter import filedialog
 from PIL import ImageTk, Image
 import glob
 import os
+import json
 
 from wfc import Tile
 
@@ -30,7 +31,7 @@ class TemplateBuilder_GUI():
 
         # 2) misc. data
         self.encoded_template = {}
-        self.initialize_encoded_template(self.grid_dims)     
+        self.initialize_encoded_template()     
 
     def grid_to_pixel(self, grid_idx, use_canvas_pad=True):
         return (grid_idx[0] * self.tile_dims[0] + self.canvas_pad*use_canvas_pad, 
@@ -104,6 +105,12 @@ class TemplateBuilder_GUI():
 
         self.tileset_load_button = tk.Button(self.control_panel, text="Load Tileset", command=self.update_tileset)
         self.tileset_load_button.grid(row=0, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+
+        self.save_button = tk.Button(self.control_panel, text="Save Template", command=self.handle_save_template)
+        self.save_button.grid(row=0, column=4, padx=self.allpad, pady=self.allpad, sticky=E)
+
+        self.load_button = tk.Button(self.control_panel, text="Load Template", command=self.handle_load_template)
+        self.load_button.grid(row=1, column=4, padx=self.allpad, pady=self.allpad, sticky=E)
 
         self.tileset_label = tk.Label(self.control_panel, text=self.tileset_name, bg="white", fg="blue", font=("Calibri", 16))
         self.tileset_label.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=S, columnspan=2)
@@ -183,7 +190,8 @@ class TemplateBuilder_GUI():
         
     def update_tileset(self):
         print(f"\nLoading tileset...")
-        path = tk.filedialog.askdirectory(initialdir = os.getcwd(), title = "Select tileset directory")
+        # path = filedialog.askdirectory(initialdir = os.getcwd(), title = "Select tileset directory")
+        path = filedialog.askdirectory(initialdir = "./", title = "Select tileset directory")
         if path == "":
             print("No tileset selected\n")
             return
@@ -196,10 +204,13 @@ class TemplateBuilder_GUI():
         self.tileset_label.config(text=self.tileset_name)
         self.load_tileset()
         self.create_widgets()
+
+        self.initialize_encoded_template()
             
-    def initialize_encoded_template(self, grid_dims):
-        for x in range(grid_dims[0]):
-            for y in range(grid_dims[1]):
+    def initialize_encoded_template(self):
+        self.encoded_template["tileset_name"] = self.tileset_name
+        for x in range(self.grid_dims[0]):
+            for y in range(self.grid_dims[1]):
                 self.encoded_template[(x, y)] = (-1, 0)
 
     def insert_tile_image(self, idx, tile_id):
@@ -218,13 +229,29 @@ class TemplateBuilder_GUI():
         self.root.bind("q", self.handle_rotate_tile_ccw)
         self.root.bind("e", self.handle_rotate_tile_cw)
         self.canvas.bind("<Motion>", self.handle_mouse_motion)
+        self.canvas.bind("<B1-Motion>", self.handle_canvas_drag)
         self.canvas.bind("<Leave>", self.handle_leave_canvas)
-        # self.root.bind("<Control-s>", self.handle_save_template)
+        
+        self.root.bind("<Control-s>", self.handle_save_template)
 
     def handle_canvas_click(self, event):
         if self.selected_tile is not None and self.selected_grid_idx is not None:
             self.insert_tile_image(self.selected_grid_idx, self.selected_tile)
 
+    def get_grid_idx_from_event(self, event):
+        idx = self.pixel_to_grid((event.x, event.y))
+        if min(idx) < 0 or idx[0] >= self.grid_dims[0] or idx[1] >= self.grid_dims[1]:
+            return None
+        return idx
+    
+    def handle_canvas_drag(self, event):
+        idx = self.get_grid_idx_from_event(event)
+        if idx is None:
+            return
+        self.handle_mouse_motion(event, idx)
+        if self.selected_tile is not None:
+            self.insert_tile_image(idx, self.selected_tile)
+            
     def handle_toggle_grid(self, event=None):
         self.show_grid = not self.show_grid
 
@@ -236,12 +263,15 @@ class TemplateBuilder_GUI():
     def handle_close_window(self, event):
         self.root.destroy()
 
-    def handle_mouse_motion(self, event):
-        idx = self.pixel_to_grid((event.x, event.y))
-        if min(idx) < 0 or idx[0] >= self.grid_dims[0] or idx[1] >= self.grid_dims[1]:
-            return
+    def handle_mouse_motion(self, event, idx=None):
+        # idx = self.pixel_to_grid((event.x, event.y))
+        # if min(idx) < 0 or idx[0] >= self.grid_dims[0] or idx[1] >= self.grid_dims[1]:
+        #     return
+        if idx is None:
+            idx = self.get_grid_idx_from_event(event)
+            
         
-        if self.selected_grid_idx != idx:
+        if self.selected_grid_idx != idx and idx is not None:
             self.show_preview_square(idx)
             self.highlight_hovered_square(idx)
             self.selected_grid_idx = idx
@@ -263,13 +293,53 @@ class TemplateBuilder_GUI():
         
         tile = self.tileset[self.selected_tile]
 
-        if tile.num_rotations == 0:
+        if tile.num_rotations <= 1:
+            print("Tile has no rotations")
             return
 
-        new_rot = (tile.rot + dir) % (tile.num_rotations)
+        new_rot = (tile.rot + dir) % 4 # square tiles only have 4 possible rotations
         self.selected_tile = (self.selected_tile[0], new_rot)
+        while True:
+            if self.selected_tile in self.tileset:
+                break
+            new_rot = (new_rot + dir) % 4
+            self.selected_tile = (self.selected_tile[0], new_rot)
         self.handle_tile_button_clicked(self.selected_tile)
         self.update_preview_img()
+
+    def handle_save_template(self, event=None):
+        print('\nSaving template...\n')
+        f = filedialog.asksaveasfile(initialdir="./assets/"+self.tileset_name, initialfile=f'{self.tileset_name}_template', defaultextension=".json", filetypes=[("JSON File", "*.json")])
+        # Need to encode dict keys as strings because JSON doesn't handle tuple keys
+        string_keys_encoded_template = {str(k): v for k, v in self.encoded_template.items()}
+        f.write(json.dumps(string_keys_encoded_template))
+
+    def handle_load_template(self, event=None):
+        print('\nLoading template...')
+        f = filedialog.askopenfile(initialdir="./assets", filetypes=[("JSON File", "*.json")])
+        if f is None:
+            print('No file selected\n')
+            return
+        
+        loaded_template = json.load(f)
+        self.tileset_name = loaded_template.pop('tileset_name', None)
+        print(self.tileset_name)
+        # Need to recreate tuple keys from string keys
+        self.encoded_template = {tuple(map(int, k.replace('(','').replace(')','').split(','))): v for k, v in loaded_template.items()}
+        self.encoded_template['tileset_name'] = self.tileset_name
+
+        self.tileset_label.config(text=self.tileset_name)
+        self.load_tileset()
+        self.create_widgets()
+
+        self.draw_from_template()
+
+    def draw_from_template(self):
+        for idx, tile in self.encoded_template.items():
+            if tile[0] == -1 or idx == 'tileset_name':
+                continue
+            self.img.paste(self.tileset[tuple(tile)].image, self.grid_to_pixel(idx, use_canvas_pad=False))
+        self.refresh_canvas()
 
     def show_preview_square(self, hover_idx):
         
