@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import *
 from tkinter import filedialog
 from PIL import ImageTk, Image
+from copy import deepcopy
 import glob
 import os
 import json
@@ -14,10 +15,12 @@ class TemplateBuilder_GUI():
         self.root = tk.Tk()
         self.root.title("Template Image Builder")
         self.root.focus_force()
+        self.root.resizable(True, True)
         # self.root.configure(background="#808080")
 
         self.scale = scale
         self.grid_dims = grid_dims
+        self.grid_dims_max = (30,30)
 
         # Load tileset
         self.tileset_name = "village_tile_set2"
@@ -27,6 +30,7 @@ class TemplateBuilder_GUI():
         self.allpad = 10
         self.canvas_pad = 5
         self.default_img_color = (255, 0, 255)
+        self.show_grid = True
         self.create_widgets()
 
         # 2) misc. data
@@ -47,30 +51,31 @@ class TemplateBuilder_GUI():
         self.tileframe = None
         self.tileframe_canvas = None
         self.selected_tile_view = None
+        self.selected_tile_canvas = None
         self.create_canvas()
         self.create_control_panel()
         self.create_tileframe()
         self.create_selected_tile_view()
 
-        self.show_grid = True
-        self.draw_grid()
+        # self.show_grid = True
+        if self.show_grid:
+            self.draw_grid()
 
         self.arrange_widgets()
 
-        self.hovered_widget = None
         self.bind_events()
 
         # Set up member variables
         # 1) selected regions of GUI
         self.selected_grid_idx = None
-        self.selected_tile = None
-    
+        # self.selected_tile = None
+
     def arrange_widgets(self):
         # Arrange widgets using grid layout manager
-        self.canvas.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.canvas.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=None)
         self.tileframe.grid(row=1, column=1, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
         self.control_panel.grid(row=0, column=0, sticky=N+S+E+W) #columnspan=self.root.grid_size()[0]
-        self.selected_tile_view.grid(row=0, column=1, sticky=W+E)
+        self.selected_tile_view.grid(row=0, column=1, sticky=N+S+W+E)
 
     def load_tileset(self):
         Tile.tile_scaling = self.scale
@@ -78,8 +83,8 @@ class TemplateBuilder_GUI():
         self.tile_dims = list(self.tileset.values())[0].img_size
     
     def create_canvas(self):
-
         if self.canvas is not None:
+            self.canvas.delete('all')
             self.canvas.destroy()
 
         self.w = self.tile_dims[0] * self.grid_dims[0]
@@ -92,6 +97,7 @@ class TemplateBuilder_GUI():
         self.tk_img = ImageTk.PhotoImage(self.img, master = self.canvas)
 
         self.img_id = self.canvas.create_image(self.canvas_pad, self.canvas_pad, anchor=NW, image=self.tk_img)
+        self.draw_grid()
         
     def create_control_panel(self):
 
@@ -107,10 +113,32 @@ class TemplateBuilder_GUI():
         self.tileset_load_button.grid(row=0, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
         self.save_button = tk.Button(self.control_panel, text="Save Template", command=self.handle_save_template)
-        self.save_button.grid(row=0, column=4, padx=self.allpad, pady=self.allpad, sticky=E)
+        self.save_button.grid(row=0, column=3, padx=self.allpad, pady=self.allpad, sticky=E)
 
         self.load_button = tk.Button(self.control_panel, text="Load Template", command=self.handle_load_template)
-        self.load_button.grid(row=1, column=4, padx=self.allpad, pady=self.allpad, sticky=E)
+        self.load_button.grid(row=1, column=3, padx=self.allpad, pady=self.allpad, sticky=E)
+
+        self.width_input = tk.Entry(self.control_panel, width=5)
+        self.height_input = tk.Entry(self.control_panel, width=5)
+        self.width_input.insert(0, str(self.grid_dims[0]))
+        self.height_input.insert(0, str(self.grid_dims[1]))
+        self.width_input.grid(row=1, column=5, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.height_input.grid(row=1, column=6, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.width_input_label = tk.Label(self.control_panel, text="Width:", bg="white")
+        self.height_input_label = tk.Label(self.control_panel, text="Height:", bg="white")
+        self.width_input_label.grid(row=0, column=5, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.height_input_label.grid(row=0, column=6, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+
+        self.resize_canvas_button = tk.Button(self.control_panel, text="Resize Tile Grid", command=self.handle_resize_canvas)
+        self.resize_canvas_button.grid(row=2, column=5, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W, columnspan=2)
+
+        self.scale_input = tk.Entry(self.control_panel, width=5)
+        self.scale_input.insert(0, str(self.scale))
+        self.scale_input_label = tk.Label(self.control_panel, text="Scale:", bg="white")
+        self.scale_input.grid(row=1, column=7, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.scale_input_label.grid(row=0, column=7, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
+        self.scale_input_button = tk.Button(self.control_panel, text="Set Scale", command=self.handle_set_scale)
+        self.scale_input_button.grid(row=2, column=7, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
         self.tileset_label = tk.Label(self.control_panel, text=self.tileset_name, bg="white", fg="blue", font=("Calibri", 16))
         self.tileset_label.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=S, columnspan=2)
@@ -122,6 +150,7 @@ class TemplateBuilder_GUI():
 
         w = self.tile_dims[0] * 2 + self.canvas_pad * 2
         h = self.tk_img.height()
+        
         self.tileframe = tk.Frame(self.root, width=w, height=h, background="white", borderwidth=self.canvas_pad, highlightthickness=0)
         
         self.tileframe_canvas = tk.Canvas(self.tileframe, width=w, height=h, borderwidth=0, bg="white")
@@ -130,7 +159,7 @@ class TemplateBuilder_GUI():
         self.tileframe_canvas.configure(yscrollcommand=scroll.set)
         self.tileframe_canvas.bind("<Configure>", lambda e: self.tileframe_canvas.configure(scrollregion=self.tileframe_canvas.bbox("all")))
 
-        self.tileframe_inner = tk.Frame(self.tileframe_canvas, background="grey")
+        self.tileframe_inner = tk.Frame(self.tileframe_canvas, width=w, height=h, background="grey")
 
         self.tileframe_canvas.grid(row=0, column=0)
         scroll.grid(row=0, column=1, sticky=N+S)
@@ -145,7 +174,7 @@ class TemplateBuilder_GUI():
         # if images have been loaded
         i = 0
         for tile in self.tileset.values():
-            if tile.rot != 0:
+            if tile.rot != 0 or tile.id == -1:
                 continue
             image = Image.open(tile.image_path)
             button_image = ImageTk.PhotoImage(image)#, master = self.tileframe_inner)
@@ -159,23 +188,27 @@ class TemplateBuilder_GUI():
 
     def create_selected_tile_view(self):
         
-        if self.selected_tile_view is not None:
+        if self.selected_tile_view != None:
             self.selected_tile_view.destroy()
 
-        w = self.tile_dims[0] * 2
-        h = self.tile_dims[1] * 2
-        self.selected_tile_view = tk.Frame(self.root, width=w, height=h, background="white", borderwidth=self.canvas_pad, highlightthickness=0)
+        if self.selected_tile_canvas != None:
+            self.selected_tile_canvas.destroy()
 
-        self.selected_tile_canvas = tk.Canvas(self.selected_tile_view, width=w, height=h, borderwidth=0, bg="white")
+        w = self.tile_dims[0] * 2 
+        h = self.tile_dims[1] * 2
+
+        self.selected_tile_view = tk.Frame(self.root, width=w, height=h, background="white", borderwidth=0, highlightthickness=0)
+
+        self.selected_tile_canvas = tk.Canvas(self.selected_tile_view, width=w, height=h, borderwidth=0, highlightthickness=0, bg="white")
         self.selected_tile_canvas.grid(row=0, column=0)
         self.selected_tile_img = Image.new("RGB", (w, h), self.default_img_color)
         self.selected_tile_img = ImageTk.PhotoImage(self.selected_tile_img, master = self.selected_tile_canvas)
         self.tile_viewimg_id = self.selected_tile_canvas.create_image(self.canvas_pad, self.canvas_pad, anchor=NW, image=self.selected_tile_img)
 
-        label = tk.Label(self.selected_tile_view, text="Selected Tile", bg="white")
-        label.grid(row=1, column=0)
+        self.selected_tile_label = tk.Label(self.selected_tile_view, text="Selected Tile", bg="white")
+        self.selected_tile_label.grid(row=1, column=0)
 
-        self.handle_tile_button_clicked(list(self.tileset.keys())[0])
+        self.selected_tile = None
 
     def handle_tile_button_clicked(self, tile_id):
         print(f"Selected tile: {tile_id}")
@@ -183,6 +216,7 @@ class TemplateBuilder_GUI():
         image = Image.open(self.tileset[self.selected_tile].image_path)
         
         w, h = self.selected_tile_canvas.winfo_width(), self.selected_tile_canvas.winfo_height()
+        print(f"canvas size: {w}, {h}")
         resized_image = image.resize((w, h), resample = Image.NEAREST)
         self.selected_tile_img = ImageTk.PhotoImage(resized_image)
 
@@ -204,21 +238,26 @@ class TemplateBuilder_GUI():
         self.tileset_label.config(text=self.tileset_name)
         self.load_tileset()
         self.create_widgets()
+        self.refresh_canvas()
+        self.arrange_widgets()
 
         self.initialize_encoded_template()
             
     def initialize_encoded_template(self):
         self.encoded_template["tileset_name"] = self.tileset_name
+        self.encoded_template["dims"] = self.grid_dims
+        self.encoded_template["data"] = {}
         for x in range(self.grid_dims[0]):
             for y in range(self.grid_dims[1]):
-                self.encoded_template[(x, y)] = (-1, 0)
+                self.encoded_template["data"][(x, y)] = (-1, 0)
 
     def insert_tile_image(self, idx, tile_id):
-        self.encoded_template[idx] = tile_id
+        self.encoded_template['data'][idx] = tile_id
         self.img.paste(self.tileset[tile_id].image, self.grid_to_pixel(idx, use_canvas_pad=False))
         self.refresh_canvas()
 
     def refresh_canvas(self):
+        self.draw_grid()
         self.tk_img = ImageTk.PhotoImage(self.img)
         self.canvas.itemconfig(self.img_id, image=self.tk_img)
 
@@ -311,7 +350,11 @@ class TemplateBuilder_GUI():
         print('\nSaving template...\n')
         f = filedialog.asksaveasfile(initialdir="./assets/"+self.tileset_name, initialfile=f'{self.tileset_name}_template', defaultextension=".json", filetypes=[("JSON File", "*.json")])
         # Need to encode dict keys as strings because JSON doesn't handle tuple keys
-        string_keys_encoded_template = {str(k): v for k, v in self.encoded_template.items()}
+        self.encoded_template["tileset_name"] = self.tileset_name
+        self.encoded_template["dims"] = self.grid_dims
+
+        string_keys_encoded_template = deepcopy(self.encoded_template)
+        string_keys_encoded_template["data"] = {str(k): v for k, v in self.encoded_template["data"].items()}
         f.write(json.dumps(string_keys_encoded_template))
 
     def handle_load_template(self, event=None):
@@ -322,21 +365,29 @@ class TemplateBuilder_GUI():
             return
         
         loaded_template = json.load(f)
-        self.tileset_name = loaded_template.pop('tileset_name', None)
+
+        self.encoded_template['tileset_name'] = loaded_template['tileset_name']
+        self.tileset_name = loaded_template['tileset_name']
+
+        self.encoded_template['dims'] = loaded_template['dims']
+        self.grid_dims = loaded_template['dims']
+
         print(self.tileset_name)
+
         # Need to recreate tuple keys from string keys
-        self.encoded_template = {tuple(map(int, k.replace('(','').replace(')','').split(','))): v for k, v in loaded_template.items()}
-        self.encoded_template['tileset_name'] = self.tileset_name
+
+        self.encoded_template['data'] = {tuple(map(int, k.replace('(','').replace(')','').split(','))): v for k, v in loaded_template['data'].items()}
 
         self.tileset_label.config(text=self.tileset_name)
         self.load_tileset()
-        self.create_widgets()
+        self.resize_canvas(self.grid_dims)
+        self.refresh_canvas()
 
         self.draw_from_template()
 
     def draw_from_template(self):
-        for idx, tile in self.encoded_template.items():
-            if tile[0] == -1 or idx == 'tileset_name':
+        for idx, tile in self.encoded_template['data'].items():
+            if tile[0] == -1:
                 continue
             self.img.paste(self.tileset[tuple(tile)].image, self.grid_to_pixel(idx, use_canvas_pad=False))
         self.refresh_canvas()
@@ -383,6 +434,32 @@ class TemplateBuilder_GUI():
             self.canvas.create_line(0, y, self.tk_img.width(), y, fill=color, tag="grid")
 
         self.canvas.move("grid", self.canvas_pad, self.canvas_pad)
+
+    def handle_resize_canvas(self, event=None):
+        new_size = (int(self.width_input.get()), int(self.height_input.get()))
+        print(f"Resizing canvas to {new_size}")
+        self.resize_canvas(new_size)
+
+    def resize_canvas(self, new_size):
+        new_size = (min(new_size[0], self.grid_dims_max[0]), min(new_size[1], self.grid_dims_max[1]))
+        self.grid_dims = new_size
+        self.canvas.grid_forget()
+        self.tileframe.grid_forget()
+        # self.selected_tile_view.grid_forget()
+        self.create_widgets()
+
+        self.draw_from_template()
+
+    def handle_set_scale(self, event=None):
+        max_scale = 5
+        self.scale = min(int(self.scale_input.get()), max_scale)
+        self.load_tileset()
+        self.resize_canvas(self.grid_dims)
+
+        self.draw_from_template()
+
+        
+
 
 if __name__ == "__main__":
     gui = TemplateBuilder_GUI()
