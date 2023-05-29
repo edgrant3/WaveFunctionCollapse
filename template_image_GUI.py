@@ -7,6 +7,8 @@ import glob
 import os
 import json
 
+from template_analyzer import TemplateAnalyzer
+
 from wfc import Tile
 
 class TemplateBuilder_GUI():
@@ -353,8 +355,11 @@ class TemplateBuilder_GUI():
         self.encoded_template["tileset_name"] = self.tileset_name
         self.encoded_template["dims"] = self.grid_dims
 
+        self.analyze_template()
+
         string_keys_encoded_template = deepcopy(self.encoded_template)
         string_keys_encoded_template["data"] = {str(k): v for k, v in self.encoded_template["data"].items()}
+        string_keys_encoded_template["analyzed_template"] = {str(k): v for k, v in self.encoded_template["analyzed_template"].items()}
         f.write(json.dumps(string_keys_encoded_template))
 
     def handle_load_template(self, event=None):
@@ -366,16 +371,13 @@ class TemplateBuilder_GUI():
         
         loaded_template = json.load(f)
 
-        self.encoded_template['tileset_name'] = loaded_template['tileset_name']
+        self.encoded_template = loaded_template
         self.tileset_name = loaded_template['tileset_name']
-
-        self.encoded_template['dims'] = loaded_template['dims']
         self.grid_dims = loaded_template['dims']
 
         print(self.tileset_name)
 
         # Need to recreate tuple keys from string keys
-
         self.encoded_template['data'] = {tuple(map(int, k.replace('(','').replace(')','').split(','))): v for k, v in loaded_template['data'].items()}
 
         self.tileset_label.config(text=self.tileset_name)
@@ -458,8 +460,11 @@ class TemplateBuilder_GUI():
 
         self.draw_from_template()
 
-        
-
+    def analyze_template(self, event=None):
+        ta = TemplateAnalyzer(template=self.encoded_template)
+        ta.load_tileset(self.tileset)
+        ta.analyze_template()
+        self.encoded_template['analyzed_template'] = ta.result['data']
 
 if __name__ == "__main__":
     gui = TemplateBuilder_GUI()
