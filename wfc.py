@@ -44,22 +44,11 @@ class Tile():
         self.img_size = img_size
 
     def rotate(self, old, rot):
-        rot = rot % 4
-        if rot == 1:
-            self.sockets["N"] = old.sockets["W"]
-            self.sockets["E"] = old.sockets["N"]
-            self.sockets["S"] = old.sockets["E"]
-            self.sockets["W"] = old.sockets["S"]
-        elif rot == 2:
-            self.sockets["N"] = old.sockets["S"]
-            self.sockets["E"] = old.sockets["W"]
-            self.sockets["S"] = old.sockets["N"]
-            self.sockets["W"] = old.sockets["E"]
-        elif rot == 3:
-            self.sockets["N"] = old.sockets["E"]
-            self.sockets["E"] = old.sockets["S"]
-            self.sockets["S"] = old.sockets["W"]
-            self.sockets["W"] = old.sockets["N"]
+        rot   = rot % 4
+        dirs  = ["N", "E", "S", "W"]
+        order = [(i - rot) % 4 for i in range(4)]
+        for i, dir in enumerate(dirs):
+            self.sockets[dir] = old.sockets[dirs[order[i]]]
 
     @classmethod
     def generate_error_tile(cls):
@@ -185,7 +174,8 @@ class WFC():
                     self.tile_map[neighbor_idx] = waveTile(self.tile_ids, False)
 
                 if not self.tile_map[neighbor_idx].collapsed:
-                    self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible if socket == self.tiles[x].sockets[opp][::-1]]
+                    self.tile_map[neighbor_idx].possible = [x for x in self.tile_map[neighbor_idx].possible \
+                                                            if socket == self.tiles[x].sockets[opp][::-1]]
                     self.entropy_map[neighbor_idx] = len(self.tile_map[neighbor_idx].possible)
 
     def check_neighbors(self, idx, id):
@@ -307,9 +297,9 @@ class WFC():
 if __name__ == "__main__":
 
     # grid_dims = (500, 300) # ~ 1min per solve
-    grid_dims = (80, 55) # < 1s per solve
-    # grid_dims = (45, 30)
-    Tile.tile_scaling = 1
+    # grid_dims = (80, 55) # < 1s per solve
+    grid_dims = (45, 30)
+    Tile.tile_scaling = 2
     run_animated = False
     save_result = False
 
@@ -345,7 +335,7 @@ if __name__ == "__main__":
             first_run = False
         else:
             wfc.win.wait_for_keypress()
-            # time.sleep(1.25)
+            time.sleep(0.25)
             # pass
         wfc.draw_all(refresh=run_animated)
 

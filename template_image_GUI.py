@@ -359,8 +359,9 @@ class TemplateBuilder_GUI():
 
         string_keys_encoded_template = deepcopy(self.encoded_template)
         string_keys_encoded_template["data"] = {str(k): v for k, v in self.encoded_template["data"].items()}
-        string_keys_encoded_template["analyzed_template"] = {str(k): v for k, v in self.encoded_template["analyzed_template"].items()}
-        f.write(json.dumps(string_keys_encoded_template))
+        string_keys_encoded_template["analyzed_template"]['data'] = {str(k): v for k, v in self.encoded_template["analyzed_template"]['data'].items()}
+        # f.write(json.dumps(string_keys_encoded_template))
+        json.dump(string_keys_encoded_template, f, indent=2)
 
     def handle_load_template(self, event=None):
         print('\nLoading template...')
@@ -464,7 +465,7 @@ class TemplateBuilder_GUI():
         ta = TemplateAnalyzer(template=self.encoded_template)
         ta.load_tileset(self.tileset)
         ta.analyze_template()
-        self.encoded_template['analyzed_template'] = ta.result['data']
+        self.encoded_template['analyzed_template'] = ta.result#['data']
 
 if __name__ == "__main__":
     gui = TemplateBuilder_GUI()

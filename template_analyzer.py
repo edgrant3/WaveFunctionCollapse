@@ -4,7 +4,7 @@ import json
 from wfc import Tile
 
 class TemplateAnalyzer():
-    def __init__(self, template = {}, template_path = None, kernel_size=(3,3), include_borders=False):
+    def __init__(self, template = {}, template_path = None, kernel_size=(7,7), include_borders=False):
         self.template_path = template_path
         self.kernel_size = kernel_size
         self.include_borders = include_borders
@@ -83,6 +83,7 @@ class TemplateAnalyzer():
 
         self.result = {'dims': self.template['dims'], 
                        'tileset_name': self.template['tileset_name'],
+                       'kernel_size': self.kernel_size,
                        'data': {}}
 
         neighbor_idxs_relative = self.get_neighbor_relative_idxs()
@@ -91,7 +92,7 @@ class TemplateAnalyzer():
         for idx, tile in self.template['data'].items():
             tile = tuple(tile)
             if tile not in self.result['data'].keys():
-                self.result['data'][tile] = np.zeros((self.num_tiles_w_borders, 
+                self.result['data'][tile] = np.zeros((self.num_tiles, 
                                                      self.kernel_size[0], 
                                                      self.kernel_size[1]), dtype=np.int32)
 
