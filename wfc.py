@@ -1,133 +1,10 @@
-import math
-import glob
-import PIL
-import json
-import os
-import copy
-from PIL import ImageTk, Image
 import numpy as np
 import time
 
 from wfc_GUI import WFC_GUI
+from tile import Tile, waveTile
 
-##############################################
 
-class Direction():
-    def __init__(self, dir, opp, idx = (0,0)):
-        self.dir = dir
-        self.opp = opp
-        self.idx = idx
-
-    def is_inbounds(self, idx, grid_dims):   
-        return (0 <= idx[0] + self.idx[0] < grid_dims[0]) and (0 <= idx[1] + self.idx[1] < grid_dims[1])
-
-##############################################
-
-class Tile():
-    min_dim = 15
-    tile_scaling = 1
-    # coords: (w, h), top left origin
-    directions = {"N": Direction("N", "S", ( 0, -1 )),
-                  "E": Direction("E", "W", ( 1,  0 )),
-                  "S": Direction("S", "N", ( 0,  1 )),
-                  "W": Direction("W", "E", (-1,  0 ))}
-    
-    def __init__(self, id, image_path, weight = 1, ispatch = False, img_size = None):
-        self.id = id
-        self.image_path = image_path
-        self.image = None
-        self.rot = 0
-        self.num_rotations = 0
-        self.weight = weight
-        self.ispatch = ispatch
-        self.sockets = {}
-        self.img_size = img_size
-
-    def rotate(self, old, rot):
-        rot   = rot % 4
-        dirs  = ["N", "E", "S", "W"]
-        order = [(i - rot) % 4 for i in range(4)]
-        for i, dir in enumerate(dirs):
-            self.sockets[dir] = old.sockets[dirs[order[i]]]
-
-    @classmethod
-    def generate_error_tile(cls):
-        ET =  cls(-1, "assets/error_tile.png", 1, False)
-        ET.image = PIL.Image.open(ET.image_path)
-        cls.error_tile = ET
-    
-    @classmethod
-    def resize_image(cls, tile, dir):
-        pil_img = PIL.Image.open(tile["image"])
-        scale = cls.tile_scaling
-        pil_img = pil_img.resize((scale*pil_img.size[0], scale*pil_img.size[1]), 
-                                  resample = PIL.Image.NEAREST)
-
-        resized_path = f'{dir}/{tile["id"]}_0.png'
-        pil_img.save(resized_path)
-        
-        return resized_path, pil_img.size
-
-    @classmethod
-    def create_rotated_image(cls, tile, rot, dir):
-        pil_img = PIL.Image.open(tile.image_path)
-        rotated_path = f'{dir}/{tile.id}_{rot}.png'
-        pil_img.rotate(-90*rot).save(rotated_path)
-        return rotated_path
-
-    @classmethod
-    def generate_tiles_JSON(cls, json_filename):
-        cls.generate_error_tile()
-
-        path = f"assets/{json_filename}"
-        with open(os.path.join(path, json_filename + ".json")) as file:
-            file_contents = file.read()
-
-        path = os.path.join(path, "processed_images")
-
-        tileset = json.loads(file_contents)["tileset"]
-        tiles   = {}
-        tile_ids = []
-        patch_tile_ids = []
-        for tile in tileset["tiles"]:
-            if not tile["ignore"]:
-
-                img_path, img_size = cls.resize_image(tile, path)
-
-                new_tile = cls(tile["id"], img_path, tile["weight"], tile["patch_tile"], img_size)
-                new_tile.sockets = tile["sockets"]
-                new_tile.num_rotations = len(tile["rotations"])
-                
-                for rot in tile["rotations"]:
-                    img_path = cls.create_rotated_image(new_tile, rot, path)
-                    # rotated_tile = cls(new_tile.id, img)
-                    rotated_tile = copy.deepcopy(new_tile)
-                    rotated_tile.image_path = img_path
-                    rotated_tile.image = PIL.Image.open(img_path)
-                    # rotated_tile.image = ImageTk.PhotoImage(rotated_tile.image)
-                    rotated_tile.rot = rot
-                    rotated_tile.rotate(new_tile, rot)
-
-                    tiles[(rotated_tile.id, rotated_tile.rot)] = rotated_tile
-
-                    if new_tile.ispatch:
-                        patch_tile_ids.append((rotated_tile.id, rotated_tile.rot))
-                    else:
-                        tile_ids.append((rotated_tile.id, rotated_tile.rot))
-                        
-        cls.error_tile.sockets = tiles[(0, 0)].sockets
-        tiles[(-1, 0)] = cls.error_tile                        
-
-        return tiles, tile_ids, patch_tile_ids
-
-##############################################
-
-class waveTile():
-    def __init__(self, possible_tiles = [], collapsed = False):
-        self.collapsed = collapsed # a bit redundant, could just check if len(possible_tiles) == 1
-        self.possible = possible_tiles
-        
-##############################################
 class WFC():
     def __init__(self, grid_size, tiles, tile_ids, patch_ids, win = None):
         self.grid_size = grid_size
@@ -305,8 +182,8 @@ if __name__ == "__main__":
 
     village = "village_tile_set2"
     default = "default_tile_set"
-    ocean  = "ocean_tile_set"
-    seaweed  = "seaweed_set"
+    ocean   = "ocean_tile_set"
+    seaweed = "seaweed_set"
 
     Tile.generate_error_tile()
     t1_dict, t1, pt1 = Tile.generate_tiles_JSON(default)

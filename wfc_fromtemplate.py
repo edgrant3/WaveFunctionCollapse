@@ -394,7 +394,7 @@ if __name__ == "__main__":
     # grid_dims = (80, 55) # < 1s per solve
     grid_dims = (45, 30)
     Tile.tile_scaling = 2
-    run_animated = True
+    run_animated = False
     save_result = False
 
     t1_set = "default_tile_set"

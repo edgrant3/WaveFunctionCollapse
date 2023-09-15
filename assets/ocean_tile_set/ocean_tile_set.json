@@ -113,6 +113,22 @@
                     "W": "BBBB"
                 }
 
+            },
+
+            {
+                "id": 7,
+                "image": "assets/ocean_tile_set/7.png",
+                "rotations": [0, 1],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 0.25,
+                "sockets": {
+                    "N": "ACBB",
+                    "E": "BBCA",
+                    "S": "ACBB",
+                    "W": "BBCA"
+                }
+
             }
         ]
     }
