@@ -26,14 +26,22 @@ V3 Video:
 
 To implement your own tileset, first create a series of images which can be reasonably assembled. Then, copy a JSON (one without "template" in the name) from an existing tileset's directory and enter the information corrsponding to your specific tiles. Then, add your tileset via the main function at the bottom of `wfc.py`. Finally, execute `wfc.py` (I'm running Python version 3.8.7) and press ESC key to avance through all the tilesets.
 
-NOTES:
+Notes for the tileset JSON:
 
-* "rotations": `[0]` means that the image will have no rotated versions and the program will not create more tiles. `[0, 1]` means there is a 90-degree clockwise-rotated version in addition to the original and a secondary tile will thus be created. `[0, 1, 2, 3]` is the maximum number of rotations, and 3 additional rotated versions of the tile will be created at 90-degree increments.
+* "rotations": this field is an array where the number of elements dictates how many rotated variants of the tile should exist, and the value of each element corresonds to the amount that variant will be rotated (value * 90 degrees clockwise). `[0]` is just the unrotated tile. It means that the image will have no rotated versions and the program will not create more tiles. `[0, 1]` means there is a 90-degree clockwise-rotated version in addition to the original and a secondary tile will thus be created. `[0, 2]` would have the program create the unrotated tile and another rotated by 180 degrees. `[0, 1, 2, 3]` is the maximum number of rotations for a square tile, and 3 additional rotated versions of the tile will be created at 90-degree increments from the nominal orientation.
 
-* "sockets": These can be arbitrarily-long strings (though more than 3-4 characters gets very difficult to make a complete set for), where each letter corresponds to a color or set of pixels which can match up with the edge of another tile (e.g. sand to sand, grass to grass). Most Importantly, the sockets start with the "North" edge of the tile and should be ordered as if you are moving clockwise around the edges of the tile.
+* "sockets": These can be arbitrarily-long strings (though with more than 3-4 characters, making a complete tileset becomes challenging), where each letter corresponds to a color or set of pixels which will match up with a region on the edge of another tile (e.g. sand texture, line continuity). Most Importantly, the sockets start with the "North" edge of the tile and should be ordered as if you are moving clockwise around the edges of the tile.
 
+For example, the tile below would have the following sockets. N: "ACBB", E: "BBCA", S: "ACBB", W: "BBCA"
+Where "A" corresponds to the blue ocean color, "B" is the green grass, and "C" is the sandy beach
 
-Currently, I'm working on building a GUI to construct template images which will then be processed and used to determine adjacency probabilities for all tiles such that the final result contains better patterns and structure. The GUI produced by the  `TemplateBuilder_GUI` class already has many features implemented and currently looks like this:
+![](captures/ExampleTile1.png)
+
+And its South edge socket would match with the North socket of this Tile because it is the reverse ("BBCA")
+
+![](captures/ExampleTile2.png)
+
+While this socket-based approach allows me to get great results, I'm also working on a better, artist-driven solution. I'm building a GUI to construct image templates which will encode adjacency probabilities for all tiles. This should enable the algorithm to more closely approximate a specific way of assembling tiles as defined by the user, rather than relying solely on sockets. The `TemplateBuilder_GUI` class already has many features implemented and the process of saving and loading templates is solved. `wfc_fromtemplate.py` contains my in-progress solution to applying the encoded probabilities to the original WFC algorithm. The artist-friendly GUI Template Builder currently looks like this:
 
 ![](captures/InputImageGUI_V2.PNG)
 

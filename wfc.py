@@ -195,7 +195,7 @@ if __name__ == "__main__":
     # grid_dims = (500, 300) # ~ 1min per solve
     grid_dims = (80, 55) # < 1s per solve
     # grid_dims = (45, 30)
-    TileSet.default_scale = 1
+    TileSet.default_scale = 6
     run_animated = False
     save_result = False
 
