@@ -18,6 +18,16 @@ V3 Video:
 
 [![V3 Wave Function Collapse](captures/V3.PNG)](https://youtu.be/Umz1vGyT-Lg "V3 Wave Function Collapse")
 
+## Log (5/9/23 start)
+
+* 5/8/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
+
+* 5/17/2023: Augment seaweed tileset to be fully solvable. Repair `enforce_region()` function to enable setting a rectangular region of the map to a specific tile. Misc. bugfixes highlighted by trying to implement the seaweed tileset.
+
+* 5/24/2023: Build skeleton for template image GUI in separate tkinter-based class.
+
+* 9/15/2023: Refactored project with better OOP principles. Moved and improved `Tile` class and implemented `TileSet`, `Template`, and `TemplateAnalyzer` classes. Updated`TemplateBuilder_GUI` to offload non-GUI processes to TileSet class and fixed several bugs that improve GUI usage when scaling. Standardized indices convention to be (x,y), (col, row), (horizontal, vertical) everywhere in the project. Improved saving and loading of templates and started using integer IDs for template data dictionaries. Made `WFC` compatible with all the above changes. Next steps: make `wfc_fromtemplate` compatible with above changes and fix bugs. Currently brainstorming more sophisticated algorithm for applying analyzed templates.
+
 ## Current Status and Usage
 The final images are constructed from a small subset of images which I will call a "tileset". Small, pixel-perfect, and square images comprise the tileset and the user defines parameters such as sockets (strings respresenting a joining "key" along each edge of the tile), weighting, rotated variants, etc. in JSON files accompanying each tileset. `wfc.py` reads these JSON files to construct the tilset which the Wave Function Collapse algorithm then procedurally assembles into a larger image using matching rules between adjacent tile sockets.
 
@@ -49,14 +59,6 @@ Tile: an image with encoded information about how it can be assembled
 Tileset: the full set of tiles, including all rotational variants
 
 Patch Tile: A tile that will only be inserted into the image if no regular tiles satisfy the constraints at that point in the image. They can address unsolvable regions of the image which occur infrequently
-
-## Log (5/9/23 start)
-
-* 5/8/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
-
-* 5/17/2023: Augment seaweed tileset to be fully solvable. Repair `enforce_region()` function to enable setting a rectangular region of the map to a specific tile. Misc. bugfixes highlighted by trying to implement the seaweed tileset.
-
-* 5/24/2023: Build skeleton for template image GUI in separate tkinter-based class.
 
 
 
