@@ -11,7 +11,7 @@ class Template():
         self.h_max        = 30
         self.w            = width          # int: width  of template grid
         self.w_max        = 30
-        self.data_raw     = np.ones((height, width)) # 2D nparray: integer representation of tile grid
+        self.data_raw     = np.ones((width, height)) # 2D nparray: integer representation of tile grid
         self.data_encoded = {}             # dict: encoded probabilities after analyzing
         self.analyzer = TemplateAnalyzer(self)
 
@@ -19,7 +19,7 @@ class Template():
         self.data_raw *= self.tileset.idANDidx[(-1, 0)]
 
     def clear_rawdata(self):
-        self.data_raw = np.ones((self.h, self.w)) * self.tileset.idANDidx[(-1, 0)]
+        self.data_raw = np.ones((self.w, self.h)) * self.tileset.idANDidx[(-1, 0)]
 
     def clear_data(self):
         self.clear_rawdata()
@@ -28,10 +28,10 @@ class Template():
     def resize(self, new_w, new_h):
         new_w = min(new_w, self.w_max)
         new_h = min(new_h, self.h_max)
-        new_data = np.ones((new_h, new_w)) * self.tileset.idANDidx[(-1, 0)]
+        new_data = np.ones((new_w, new_h)) * self.tileset.idANDidx[(-1, 0)]
         w_slice_idx = min(self.w, new_w)
         h_slice_idx = min(self.h, new_h)
-        new_data[0:h_slice_idx, 0:w_slice_idx] = self.data_raw[0:h_slice_idx, 0:w_slice_idx]
+        new_data[0:w_slice_idx, 0:h_slice_idx] = self.data_raw[0:w_slice_idx, 0:h_slice_idx]
         self.data_raw = new_data
         self.w = new_w
         self.h = new_h
@@ -88,9 +88,9 @@ class TemplateAnalyzer():
         half_kernel = (self.kernel_size[0] // 2, self.kernel_size[1] // 2)
         idxs = []
         
-        for col in range(-half_kernel[1], half_kernel[1] + 1):
-            for row in range(-half_kernel[0], half_kernel[0] + 1):
-                idxs.append((row, col))
+        for col in range(-half_kernel[0], half_kernel[0] + 1):
+            for row in range(-half_kernel[1], half_kernel[1] + 1):
+                idxs.append((col, row))
 
         return idxs
     
@@ -102,8 +102,8 @@ class TemplateAnalyzer():
 
     def is_inbounds(self, idx):
         '''Check (row, col) idx to see if it is in grid bounds'''
-        return (idx[0] >= 0 and idx[0] < self.template.h and
-                idx[1] >= 0 and idx[1] < self.template.w)
+        return (idx[0] >= 0 and idx[0] < self.template.w and
+                idx[1] >= 0 and idx[1] < self.template.h)
     
     def run(self):
         print('Analyzing template...')
@@ -113,19 +113,19 @@ class TemplateAnalyzer():
 
         for col in range(self.template.w):
             for row in range(self.template.h):
-                tile_idx = self.template.data_raw[row, col]
+                tile_idx = self.template.data_raw[col, row]
                 if tile_idx not in self.template.data_encoded.keys():
                     self.template.data_encoded[tile_idx] = np.zeros((self.template.tileset.count,
-                                                                     self.kernel_size[1],
-                                                                     self.kernel_size[0]))
+                                                                     self.kernel_size[0],
+                                                                     self.kernel_size[1]))
 
-                neighbor_idxs = self.get_neighbor_idxs((row, col), neighbor_idxs_relative)
+                neighbor_idxs = self.get_neighbor_idxs((col, row), neighbor_idxs_relative)
 
                 for i, neighbor in enumerate(neighbor_idxs):
                     if not self.is_inbounds(neighbor):
                         continue
                     neighbor_tile_idx = self.template.data_raw[neighbor]
-                    # depth, row, col
+                    # depth, col, row
                     self.template.data_encoded[tile_idx][int(neighbor_tile_idx), kernel_idxs[i][0], kernel_idxs[i][1]] += 1
 
         for key in self.template.data_encoded.keys():

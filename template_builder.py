@@ -51,14 +51,14 @@ class TemplateBuilder_GUI():
         self.selected_tile = self.template.tileset.tiles[selected_id]
 
     def grid_to_pixel(self, grid_idx, use_canvas_pad=True):
-        '''grid_idx is in (row, col) format, output is in (x, y) pixels'''
-        return (grid_idx[1] * self.template.tileset.tile_px_w + self.canvas_pad*use_canvas_pad,
-                grid_idx[0] * self.template.tileset.tile_px_h + self.canvas_pad*use_canvas_pad)
+        '''grid_idx is in (col, row) format, output is in (x, y) pixels'''
+        return (grid_idx[0] * self.template.tileset.tile_px_w + self.canvas_pad*use_canvas_pad,
+                grid_idx[1] * self.template.tileset.tile_px_h + self.canvas_pad*use_canvas_pad)
     
     def pixel_to_grid(self, pixel, use_canvas_pad=True):
         '''convert (x,y) pixel to grid dims (row, col)'''
-        return ((pixel[1] - self.canvas_pad*use_canvas_pad) // (self.template.tileset.tile_px_h),
-                (pixel[0] - self.canvas_pad*use_canvas_pad) // (self.template.tileset.tile_px_w))
+        return ((pixel[0] - self.canvas_pad*use_canvas_pad) // (self.template.tileset.tile_px_w),
+                (pixel[1] - self.canvas_pad*use_canvas_pad) // (self.template.tileset.tile_px_h))
 
     def create_widgets(self):
         self.create_canvas()
@@ -242,7 +242,7 @@ class TemplateBuilder_GUI():
         self.refresh_canvas()
 
     def insert_tile_image(self, idx, tile_id):
-        '''idx is (row, col) of grid from top left, tile_id is tuple id of tile'''
+        '''idx is (col, row) of grid from top left, tile_id is tuple id of tile'''
         self.template.data_raw[idx] = self.template.tileset.idANDidx[tile_id]
         self.img.paste(self.template.tileset.tiles[tile_id].image, self.grid_to_pixel(idx, use_canvas_pad=False))
         self.refresh_canvas()
@@ -270,7 +270,7 @@ class TemplateBuilder_GUI():
 
     def get_grid_idx_from_event(self, event):
         idx = self.pixel_to_grid((event.x, event.y))
-        if min(idx) < 0 or idx[0] >= self.template.h or idx[1] >= self.template.w:
+        if min(idx) < 0 or idx[0] >= self.template.w or idx[1] >= self.template.h:
             return None
         return idx
     
@@ -294,13 +294,9 @@ class TemplateBuilder_GUI():
         self.root.destroy()
 
     def handle_mouse_motion(self, event, idx=None):
-        # idx = self.pixel_to_grid((event.x, event.y))
-        # if min(idx) < 0 or idx[0] >= self.grid_dims[0] or idx[1] >= self.grid_dims[1]:
-        #     return
         if idx is None:
             idx = self.get_grid_idx_from_event(event)
             
-        
         if self.selected_grid_idx != idx and idx is not None:
             self.show_preview_square(idx)
             self.highlight_hovered_square(idx)
@@ -359,10 +355,10 @@ class TemplateBuilder_GUI():
     def draw_from_template(self):
         for col in range(self.template.w):
             for row in range(self.template.h):
-                tile_idx = self.template.data_raw[row, col]
+                tile_idx = self.template.data_raw[col, row]
                 tile_id  = self.template.tileset.idANDidx[tile_idx]
                 self.img.paste(self.template.tileset.tiles[tile_id].image, 
-                               self.grid_to_pixel((row, col), use_canvas_pad=False))
+                               self.grid_to_pixel((col, row), use_canvas_pad=False))
         self.refresh_canvas()
 
     def show_preview_square(self, hover_idx):
@@ -393,9 +389,6 @@ class TemplateBuilder_GUI():
                                     outline="cyan", tag="square_highlight")
 
     def draw_grid(self, color="gray"):
-
-        print(f'EVAN: self.show_grid? {self.show_grid}')
-        
         self.canvas.delete("grid")
 
         x_spacing = self.template.tileset.tile_px_w

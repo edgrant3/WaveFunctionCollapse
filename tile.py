@@ -73,14 +73,17 @@ class Tile():
 
 ##############################################
 class TileSet():
+    default_scale = 3
     def __init__(self, tileset_name):
         self.name = tileset_name
         self.tiles     = {} # dict: maps tileID (tile, rotation) to corresponding Tile instance
         self.idANDidx  = {} # dict: maps tileID (tile, rotation) to int value
-        self.scale     = 3
+        self.scale     = TileSet.default_scale
         self.tile_px_h = None
         self.tile_px_w = None
         self.count = 0
+
+        self.generate()
 
     def set_scale(self, scale):
         self.scale = scale
@@ -157,6 +160,6 @@ class TileSet():
 class waveTile():
     def __init__(self, possible_tiles = [], collapsed = False):
         self.collapsed = collapsed # a bit redundant, could just check if len(possible_tiles) == 1
-        self.possible = possible_tiles
+        self.possible = possible_tiles # contains tuple tile_ids, initially populated with all tiles
         
 ##############################################
