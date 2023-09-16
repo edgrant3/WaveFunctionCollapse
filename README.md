@@ -45,7 +45,7 @@ While this socket-based approach allows me to get great results, I'm also workin
 
 ![](captures/InputImageGUI_V2.PNG)
 
-## Log (5/9/23 start)
+## Log
 
 * 5/8/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
 
@@ -56,12 +56,6 @@ While this socket-based approach allows me to get great results, I'm also workin
 * 9/15/2023: Refactored project with better OOP principles. Moved and improved `Tile` class and implemented `TileSet`, `Template`, and `TemplateAnalyzer` classes. Updated`TemplateBuilder_GUI` to offload non-GUI processes to TileSet class and fixed several bugs that improve GUI usage when scaling. Standardized indices convention to be (x,y), (col, row), (horizontal, vertical) everywhere in the project. Improved saving and loading of templates and started using integer IDs for template data dictionaries. Made `WFC` compatible with all the above changes. Next steps: make `wfc_fromtemplate` compatible with above changes and fix bugs. Currently brainstorming more sophisticated algorithm for applying analyzed templates.
 
 
-
-TODO:
-
-* Implement a system to analyze example input images which can detect patterns of tile arrangement and thus build more complex adjacency probabilities and more sophisticated structure in the final image
-
-* Fix Tkinter keypress callback to accept other inputs than ESC
 
 ## Previous Version Videos:
 
