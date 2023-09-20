@@ -151,9 +151,9 @@ class TemplateBuilder_GUI():
 
         icon_size = (25, 25)
         help_icon = Image.open("./assets/help_icon.png").resize(icon_size)
-        help_icon_tk = ImageTk.PhotoImage(help_icon)
-        self.open_help_popup_button = tk.Button(self.control_panel, image=help_icon_tk, command=self.open_help_popup)
-        self.open_help_popup_button.image = help_icon_tk
+        self.help_icon_tk = ImageTk.PhotoImage(help_icon)
+        self.open_help_popup_button = tk.Button(self.control_panel, image=self.help_icon_tk, command=self.open_help_popup)
+        self.open_help_popup_button.image = self.help_icon_tk
         self.open_help_popup_button.grid(row=2, column=9, padx=self.allpad, pady=self.allpad)
 
     def open_WFC_GUI(self):
@@ -168,6 +168,7 @@ class TemplateBuilder_GUI():
             self.help_popup.destroy()
 
         top = tk.Toplevel(self.root)
+        top.iconphoto(False, self.help_icon_tk)
         self.help_popup = top
         dims = (300, 500)
         top.geometry(f'{dims[0]}x{dims[1]}')

@@ -8,13 +8,9 @@ I have created 4 custom tilesets which can be found in the `assets` directory. E
 
 V3 Result Images:
 
-![](captures/smallmap1.png)
-
-![](captures/smallmap2.png)
-
-![](captures/smallmap3.png)
-
-![](captures/smallmap4.png)
+| ![](captures/smallmap1.png) | ![](captures/smallmap2.png) |
+| --------------------------- | --------------------------- |
+| ![](captures/smallmap3.png) | ![](captures/smallmap4.png) |
 
 V3 Video:
 
