@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import *
+from tkinter.constants import *
+import tkinter.font as tkFont
 from tkinter import filedialog
 from PIL import ImageTk, Image
 from copy import deepcopy
@@ -10,11 +11,14 @@ import json
 from template import Template
 from tile import Tile
 
+def RGB2HEX(rgbcol):
+    return '#%02x%02x%02x' % rgbcol
+
 class TemplateBuilder_GUI():
     def __init__(self, grid_dims=(15,15), scale=3):
         # Create the root window
         self.root = tk.Tk()
-        self.root.title("Template Image Builder")
+        self.root.title("Template Builder")
         self.root.focus_force()
         self.root.resizable(True, True)
         # self.root.configure(background="#808080")
@@ -46,6 +50,9 @@ class TemplateBuilder_GUI():
         # 1) selected regions of GUI
         self.selected_grid_idx = None
         self.selected_tile = None
+
+        self.help_popup = None
+        self.open_help_popup()
 
     def set_selected_tile(self, selected_id):
         self.selected_tile = self.template.tileset.tiles[selected_id]
@@ -125,10 +132,6 @@ class TemplateBuilder_GUI():
         self.width_input_label.grid(row=0, column=5, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
         self.height_input_label.grid(row=0, column=6, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
-        # help_txt = "Q/E: rotate tile\n G: toggle grid\n Ctrl + S: save template"
-        # self.help_label = tk.Label(self.control_panel, text = help_txt, bg="white", anchor="w")
-        # self.help_label.grid(row=1, column=8, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
-
         self.resize_canvas_button = tk.Button(self.control_panel, text="Resize Tile Grid", command=self.handle_resize_canvas)
         self.resize_canvas_button.grid(row=2, column=5, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W, columnspan=2)
 
@@ -140,8 +143,77 @@ class TemplateBuilder_GUI():
         self.scale_input_button = tk.Button(self.control_panel, text="Set Scale", command=self.handle_set_scale)
         self.scale_input_button.grid(row=2, column=7, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
 
-        self.tileset_label = tk.Label(self.control_panel, text=self.template.tileset.name, bg="white", fg="blue", font=("Calibri", 16))
+        self.tileset_label = tk.Label(self.control_panel, text=self.template.tileset.name, bg=RGB2HEX((220,220,220)), fg="blue", font=("Calibri", 18))
         self.tileset_label.grid(row=1, column=0, padx=self.allpad, pady=self.allpad, sticky=S, columnspan=2)
+
+        self.open_WFC_GUI_button = tk.Button(self.control_panel, text="Open WFC Demo", command=self.open_WFC_GUI)
+        self.open_WFC_GUI_button.grid(row=2, column=8, padx=self.allpad, pady=self.allpad)
+
+        icon_size = (25, 25)
+        help_icon = Image.open("./assets/help_icon.png").resize(icon_size)
+        help_icon_tk = ImageTk.PhotoImage(help_icon)
+        self.open_help_popup_button = tk.Button(self.control_panel, image=help_icon_tk, command=self.open_help_popup)
+        self.open_help_popup_button.image = help_icon_tk
+        self.open_help_popup_button.grid(row=2, column=9, padx=self.allpad, pady=self.allpad)
+
+    def open_WFC_GUI(self):
+        from wfc_GUI import WFC_GUI
+        self.close_win()
+        wfc_dict = WFC_GUI.load_Templates()
+        gui = WFC_GUI(wfc_dict)
+        gui.launch()
+
+    def open_help_popup(self):
+        if self.help_popup is not None:
+            self.help_popup.destroy()
+
+        top = tk.Toplevel(self.root)
+        self.help_popup = top
+        dims = (300, 500)
+        top.geometry(f'{dims[0]}x{dims[1]}')
+        top.title("Help - Template Builder")
+        justify = 'left'
+
+        cols = 2
+
+        headerfont = tkFont.Font(family="Calibri", size=12, underline=1)
+        normalfont = tkFont.Font(family="Arial", size=10, underline=0)
+        normalunderlinefont = tkFont.Font(family="Arial", size=10, underline=1)
+
+        controls_header = tk.Label(top, text="CONTROLS", fg="blue", font=headerfont, justify=justify)
+        controls_header.grid(row=0, column=0, padx=self.allpad, pady=(self.allpad, 0), sticky=W, columnspan=cols)
+
+        Qlabel    = tk.Label(top, text="Q",      font=normalunderlinefont, justify=justify)
+        Elabel    = tk.Label(top, text="E",      font=normalunderlinefont, justify=justify)
+        Glabel    = tk.Label(top, text="G",      font=normalunderlinefont, justify=justify)
+        Savelabel = tk.Label(top, text="Ctrl-S", font=normalunderlinefont, justify=justify)
+
+        Qdescr    = tk.Label(top, text=": Rotate tile CCW",  font=normalfont, justify=justify)
+        Edescr    = tk.Label(top, text=": Rotate tile CW",   font=normalfont, justify=justify)
+        Gdescr    = tk.Label(top, text=": Toggle Show Grid", font=normalfont, justify=justify)
+        Savedescr = tk.Label(top, text=": Save Template",    font=normalfont, justify=justify)
+
+        Qlabel.grid(row=1, column=0, padx=(2*self.allpad, 0), pady=0, sticky=W)
+        Elabel.grid(row=2, column=0, padx=(2*self.allpad, 0), pady=0, sticky=W)
+        Glabel.grid(row=3, column=0, padx=(2*self.allpad, 0), pady=0, sticky=W)
+        Savelabel.grid(row=4, column=0, padx=(2*self.allpad, 0), pady=0, sticky=W)
+        Qdescr.grid(row=1, column=1, padx=0, pady=0, sticky=W)
+        Edescr.grid(row=2, column=1, padx=0, pady=0, sticky=W)
+        Gdescr.grid(row=3, column=1, padx=0, pady=0, sticky=W)
+        Savedescr.grid(row=4, column=1, padx=0, pady=0, sticky=W)
+
+        directions_header = tk.Label(top, text="DIRECTIONS", fg="blue", font=headerfont, justify=justify)
+        directions_header.grid(row=5, column=0, padx=self.allpad, pady=(self.allpad, 0), sticky=W, columnspan=cols)
+
+        directionstext = "Create a template to provide the WFC algorithm with an example to mimic.\n"       + \
+                         "\nSelect tiles from the set of tile icons and paint them on the canvas by "       + \
+                         "clicking and dragging.\n\n 'Load Tileset' will switch to another set of "         + \
+                         "available tiles to paint with.\n\n 'Load Template' will open and populate the "   + \
+                         "canvas with an existing template.\n\n 'Save Template' analyzes the template "     + \
+                         "and saves the encoded information in a JSON.\n\n WARNING: Be careful to not "     + \
+                         "overwrite any JSONs which contain tileset data!"
+        directions_label = tk.Label(top, text=directionstext, font=normalfont, justify=justify, wraplength=dims[0]-4*self.allpad)
+        directions_label.grid(row=6, column=0, padx=(2*self.allpad, 0), pady=0, sticky=W, columnspan=cols)
 
     def create_tileframe(self):
 
@@ -345,7 +417,7 @@ class TemplateBuilder_GUI():
         if f is None:
             return
         
-        self.template.load(f)
+        self.template.load(f.name)
         self.tileset_label.config(text=self.template.tileset.name)
 
         self.resize_canvas(self.template.w, self.template.h)
@@ -422,9 +494,16 @@ class TemplateBuilder_GUI():
         self.create_widgets()
         self.draw_from_template()
 
+    def close_win(self):
+        self.root.destroy()        
+
+    def launch(self):
+        self.root.mainloop()
+        
+
 if __name__ == "__main__":
     gui = TemplateBuilder_GUI()
-    gui.root.mainloop()
+    gui.launch()
 
 
 

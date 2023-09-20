@@ -48,7 +48,6 @@ class WFC():
                 self.entropy_map[idx] = self.n_tiles + 1
                 self.update_neighbors(idx)
 
-
     def update_neighbors(self, idx):
         ''''''
         collapsed_tile = self.tileset.tiles[self.tile_map[idx].possible[0]]
@@ -195,7 +194,7 @@ if __name__ == "__main__":
     # grid_dims = (500, 300) # ~ 1min per solve
     grid_dims = (80, 55) # < 1s per solve
     # grid_dims = (45, 30)
-    TileSet.default_scale = 6
+    TileSet.default_scale = 1
     run_animated = False
     save_result = False
 

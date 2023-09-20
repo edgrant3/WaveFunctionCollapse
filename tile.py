@@ -6,6 +6,8 @@ import os
 import copy
 from PIL import ImageTk, Image
 
+import numpy as np
+
 
 class Direction():
     def __init__(self, dir, opp, idx = (0,0)):
@@ -103,6 +105,7 @@ class TileSet():
         et.image_path = p
         et.image_size = s
         et.image      = PIL.Image.open(p)
+        et.sockets    = {"N": "", "E": "", "S": "", "W": ""}
 
         self.tiles[(-1, 0)] = et
 
@@ -163,3 +166,33 @@ class waveTile():
         self.possible = possible_tiles # contains tuple tile_ids, initially populated with all tiles
         
 ##############################################
+
+class waveTileAdvanced():
+    def __init__(self, distribution=[], possible=[], collapsed = None):
+        self.distribution = distribution
+        self.collapsed = collapsed # tuple id (id, rot) of collapsed tile when collapsed
+        self.possible = possible # now a binary mask to be applied to distribution
+        self.entropy = np.inf
+
+    def compute_entropy(self):
+        val_array = self.distribution * self.possible
+        sum = np.sum(val_array)
+
+        if sum == 0:
+            # self.entropy = np.inf
+            # return np.inf
+            val_array = np.array(self.possible)
+            sum = np.sum(val_array)
+            if sum == 0:
+                print('waveTile has no possible collapse options')
+                self.entropy = 0.0
+                return self.entropy
+        
+        val_array = val_array / sum
+        entropy = 0.0
+        for val in val_array:
+            if val != 0:
+                entropy -= val * np.log(val)
+
+        self.entropy = entropy
+        return entropy

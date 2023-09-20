@@ -1,7 +1,5 @@
 # WaveFunctionCollapse
 
-## CURRENTLY REFACTORING `wfc.py` AND `wfc_fromtemplate.py`
-
 This is a personal project inspired by a mention of this algorithm in some game dev/ computer graphics videos I stumbled upon. After watching [THIS VIDEO](https://youtu.be/rI_y2GAlQFM "The Coding Train") by The Coding Train, I decided to give it a shot! As a challenge I am currently not referencing any other code or implementation so I can practice my implementation of algorithms with only a high-level understanding of how I want them to work.
 
 The core idea of this algorithm is to procedurally generate a large image from a small set of "tiles" - small, square images which can be assembled together based on a set of rules about edge continuity or adjacency probabilities. 
@@ -24,7 +22,9 @@ V3 Video:
 
 ## Current Status and Usage
 
-To implement your own tileset, first create a series of images which can be reasonably assembled. Then, copy a JSON (one without "template" in the name) from an existing tileset's directory and enter the information corrsponding to your specific tiles. Then, add your tileset via the main function at the bottom of `wfc.py`. Finally, execute `wfc.py` (I'm running Python version 3.8.7) and press ESC key to avance through all the tilesets.
+NOTE: This current solution is incomplete. Now that I have implemented templates, some areas which can be solved with sockets alone cannot be solved in a way which satisfies both socket and template rules. I'm currently developing a method to resolve error tiles and unsolvable regions. But I still feel like the current state of the project is ready to share on main.
+
+To implement your own tileset, first create a series of images which can be reasonably assembled. Then, copy a JSON (one without "template" in the name) from an existing tileset's directory and enter the information corrsponding to your specific tiles. Then, add your tileset via the main function at the bottom of `wfc_fromtemplate.py`. Finally, execute `wfc_fromtemplate.py` (I'm running Python version 3.8.7).
 
 Notes for the tileset JSON:
 
