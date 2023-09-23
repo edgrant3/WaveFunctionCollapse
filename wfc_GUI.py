@@ -97,7 +97,7 @@ class WFC_GUI():
         ### WFC Rules Radiobutton Set
         rf_col = "white" #RGB2HEX((230,230,230))
         self.rules_frame = tk.Frame(self.panel, bg=rf_col, borderwidth=1, highlightthickness=2)
-        from wfc_fromtemplate import WFCRules
+        from wfc import WFCRules
         self.wfc_rules = IntVar()
         self.rules_sockets_only_button   = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Only Sockets",              variable=self.wfc_rules, value=WFCRules.SOCKETS_ONLY.value)
         self.rules_templates_only_button = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Only Templates",            variable=self.wfc_rules, value=WFCRules.TEMPLATES_ONLY.value)
@@ -303,7 +303,7 @@ class WFC_GUI():
 
     @classmethod
     def load_Templates(cls):
-        from wfc_fromtemplate import WFC
+        from wfc import WFC
 
         grid_dims = (40, 30)
         TileSet.default_scale = 2

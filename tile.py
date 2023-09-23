@@ -7,7 +7,7 @@ import copy
 from PIL import ImageTk, Image
 
 import numpy as np
-import wfc_fromtemplate as wfc
+import wfc as wfc
 
 
 class Direction():
@@ -80,7 +80,7 @@ class TileSet():
     def __init__(self, tileset_name):
         self.name = tileset_name
         self.tiles     = {} # dict: maps tileID (tile, rotation) to corresponding Tile instance
-        self.idANDidx  = {} # dict: maps tileID (tile, rotation) to int value and vice versa
+        self.idANDidx  = {} # dict: maps tileID (tile, rotation) to integer index and vice versa
         self.socket_matches = {}
         self.scale     = TileSet.default_scale
         self.tile_px_h = None
@@ -200,31 +200,6 @@ class waveTileAdvanced():
         self.entropy = np.inf
 
     def compute_entropy(self, rules):
-        # val_array = self.possible
-        # if rules in [wfc.WFCRules.BOTH_RELAXED, wfc.WFCRules.BOTH_STRICT]:
-        #     val_array *= self.distribution
-        # # if rules == WFCRules.TEMPLATES_ONLY:
-        # #     val_array = self.distribution
-
-        # sum = np.sum(val_array)
-
-        # if sum == 0 and rules == wfc.WFCRules.BOTH_RELAXED:
-        #         val_array = self.possible
-        #         sum = np.sum(val_array)
-
-        # if sum == 0:
-        #     # print('waveTile has no possible collapse options')
-        #     self.entropy = 0.0
-        #     return self.entropy
-        
-        # val_array = val_array / sum
-        # entropy = 0.0
-        # for val in val_array:
-        #     if val != 0:
-        #         entropy -= val * np.log(val)
-
-        # self.entropy = entropy
-        # return entropy
     
         val_array = self.distribution * self.possible
         sum = np.sum(val_array)
