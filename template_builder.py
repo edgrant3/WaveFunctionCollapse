@@ -8,8 +8,7 @@ import glob
 import os
 import json
 
-from template import Template
-from tile import Tile
+import template
 
 def RGB2HEX(rgbcol):
     return '#%02x%02x%02x' % rgbcol
@@ -24,9 +23,9 @@ class TemplateBuilder_GUI():
         # self.root.configure(background="#808080")
 
         # Load template & tileset
-        self.template = Template("village_tile_set2", height=grid_dims[0], width=grid_dims[1])
+        self.template = template.Template("village_tile_set2", height=grid_dims[0], width=grid_dims[1])
         self.scale = scale
-        self._max_scale = 5
+        self._max_scale = 15
         self.template.tileset.set_scale(self.scale)
 
         # Create widgets

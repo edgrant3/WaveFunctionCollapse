@@ -119,7 +119,7 @@
                 "id": 7,
                 "image": "assets/ocean_tile_set/7.png",
                 "rotations": [0, 1],
-                "patch_tile": false,
+                "patch_tile": true,
                 "ignore": false,
                 "weight": 0.25,
                 "sockets": {

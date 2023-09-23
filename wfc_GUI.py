@@ -23,9 +23,6 @@ class WFC_GUI():
         self.root = tk.Tk()
         self.root.title("Wave Function Collapse")
         self.root.focus_force()
-        #self.screen_dims = (self.root.winfo_screenwidth(), self.root.winfo_screenheight())
-
-        # self.grid_dims = grid_dims
 
         if launch_fullscreen:
             self.root.attributes('-fullscreen', True)
@@ -39,34 +36,34 @@ class WFC_GUI():
         self.canvas = None
         self.panel  = None
         self.create_widgets()
-
-        self.advance = False
         self.bind_events()
 
-    # @classmethod
-    # def fromTileGrid(cls, tile_dims, grid_dims):
-    #     return cls(tile_dims[0] * grid_dims[0], tile_dims[1] * grid_dims[1], grid_dims)
-    def set_wfc_toggle(self, val):
-        self.wfc_toggle = val % len(self.wfc_dict.keys())
+    def grid_to_pixel(self, grid_idx, use_canvas_pad=True):
+        '''grid_idx is in (col, row) format, output is in (x, y) pixels'''
+        return (grid_idx[0] * self.wfc.template.tileset.tile_px_w + self.canvas_pad*use_canvas_pad,
+                grid_idx[1] * self.wfc.template.tileset.tile_px_h + self.canvas_pad*use_canvas_pad)
+    
+    def pixel_to_grid(self, pixel, use_canvas_pad=True):
+        '''convert (x,y) pixel to grid dims (row, col)'''
+        return ((pixel[0] - self.canvas_pad*use_canvas_pad) // (self.wfc.template.tileset.tile_px_w),
+                (pixel[1] - self.canvas_pad*use_canvas_pad) // (self.wfc.template.tileset.tile_px_h))
 
-    def set_active_wfc(self, wfc_idx):
-        self.set_wfc_toggle(wfc_idx)
-        self.wfc = self.wfc_dict[wfc_idx]
+    def get_grid_idx_from_event(self, event):
+        idx = self.pixel_to_grid((event.x, event.y))
+        if min(idx) < 0 or idx[0] >= self.wfc.grid_size[0] or idx[1] >= self.wfc.grid_size[0]:
+            return None
+        return idx
 
-    def set_animated(self):
-        self.run_animated = self.animboxval.get() == 1
-
-    def set_allow_offtemplate(self):
-        for w in self.wfc_dict.values():
-            w.allow_offtemplate_matches = self.allow_offtemplate.get() == 1
-        self.run_draw()
+    def close_win(self, event=None):
+        self.root.destroy()
 
     def bind_events(self):
+        # Window Events
         self.root.bind("<Right>",  self.handle_advance_tileset)
         self.root.bind("<Left>",   self.handle_advance_tileset)
         self.root.bind("<Escape>", self.close_win)
         self.root.bind("<space>",  self.run_draw)
-
+        # Canvas Events
         self.canvas.bind("<Button-1>", self.handle_canvas_click)
         self.canvas.bind("<Motion>", self.handle_mouse_motion)
         self.root.bind("<Control-s>", self.save_result)
@@ -74,7 +71,6 @@ class WFC_GUI():
     def create_widgets(self):
         self.create_canvas()
         self.create_panel()
-
         self.arrange_widgets()
 
     def arrange_widgets(self):
@@ -98,14 +94,24 @@ class WFC_GUI():
         self.animboxval = IntVar()
         self.animate_checkbox = tk.Checkbutton(self.panel, text='Animate Solution', variable=self.animboxval, onvalue=1, offvalue=0, command=self.set_animated)
 
-        ### allow off-template matches checkbox
-        self.allow_offtemplate = IntVar()
-        self.allow_offtemplate_checkbox = tk.Checkbutton(self.panel, text='Allow Off-Template Matches', variable=self.allow_offtemplate, 
-                                                         onvalue=1, offvalue=0, command=self.set_allow_offtemplate)
+        ### WFC Rules Radiobutton Set
+        rf_col = "white" #RGB2HEX((230,230,230))
+        self.rules_frame = tk.Frame(self.panel, bg=rf_col, borderwidth=1, highlightthickness=2)
+        from wfc_fromtemplate import WFCRules
+        self.wfc_rules = IntVar()
+        self.rules_sockets_only_button   = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Only Sockets",              variable=self.wfc_rules, value=WFCRules.SOCKETS_ONLY.value)
+        self.rules_templates_only_button = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Only Templates",            variable=self.wfc_rules, value=WFCRules.TEMPLATES_ONLY.value)
+        self.rules_both_strict_button    = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Both, Strict Match",        variable=self.wfc_rules, value=WFCRules.BOTH_STRICT.value)
+        self.rules_both_relaxed_button   = tk.Radiobutton(self.rules_frame, bg=rf_col, command=self.update_rules, text="Use Both, Sockets Priority", variable=self.wfc_rules, value=WFCRules.BOTH_RELAXED.value)
+        self.rules_sockets_only_button.grid(  row=0, column=0, padx=self.allpad, pady=0, sticky=W)
+        self.rules_templates_only_button.grid(row=1, column=0, padx=self.allpad, pady=0, sticky=W)
+        self.rules_both_strict_button.grid(   row=2, column=0, padx=self.allpad, pady=0, sticky=W)
+        self.rules_both_relaxed_button.grid(  row=3, column=0, padx=self.allpad, pady=0, sticky=W)
+        self.rules_both_strict_button.invoke()
 
         ### left, right, and refresh buttons
         self.control_frame = tk.Frame(self.panel, background="white", borderwidth=0, highlightthickness=0)
-        icon_size = (25,25)
+        icon_size = (35,35)
         refresh_img = Image.open("./assets/return_icon.png").resize(icon_size)
         r_arrow_img = Image.open("./assets/arrowhead_icon.png").resize(icon_size)
         l_arrow_img = r_arrow_img.rotate(180.0)
@@ -119,9 +125,9 @@ class WFC_GUI():
         self.left_arrow_button.image  = l_arrow_button_img
         self.right_arrow_button.image = r_arrow_button_img
         self.refresh_button.image     = refresh_button_img
-        self.left_arrow_button.grid( row=1, column=0, padx=5, pady=0, sticky=E)
-        self.right_arrow_button.grid(row=1, column=2, padx=5, pady=0, sticky=W)
-        self.refresh_button.grid(    row=1, column=1, padx=5, pady=0)
+        self.left_arrow_button.grid( row=1, column=0, padx=10, pady=0, sticky=E)
+        self.right_arrow_button.grid(row=1, column=2, padx=10, pady=0, sticky=W)
+        self.refresh_button.grid(    row=1, column=1, padx=10, pady=0)
 
         ### RNG seed checkBox
         self.use_rng_seed_val  = IntVar()
@@ -138,30 +144,16 @@ class WFC_GUI():
         ### Open TemplateBuilder button
         self.open_TB_button = tk.Button(self.panel, text="Open Template Builder", command=self.open_template_builder)
         
-
-        # ARRANGE THE WIDGETS
+        # ARRANGE THE PANEL WIDGETS
         self.tileset_label.grid(row=0, column=0, padx=self.allpad, pady=(self.allpad, self.allpad), sticky=N, columnspan=panel_cols)
-        self.control_frame.grid(row=1, column=0, padx=0, pady=(0, 2*self.allpad), columnspan=panel_cols)
-        self.animate_checkbox.grid(row=2, column=0, padx=self.allpad, pady=0, columnspan=panel_cols, sticky=W)
-        self.allow_offtemplate_checkbox.grid(row=3, column=0, padx=self.allpad, pady=0, columnspan=panel_cols, sticky=W)
+        self.control_frame.grid(row=1, column=0, padx=0, pady=(0, self.allpad), columnspan=panel_cols)
+        self.rules_frame.grid(row=2, column=0, padx=0, pady=(0,self.allpad), columnspan=panel_cols)
+        self.animate_checkbox.grid(row=3, column=0, padx=self.allpad, pady=0, columnspan=panel_cols, sticky=W)
         self.rng_seed_checkbox.grid(row=4, column=0, padx=self.allpad, pady=self.allpad, columnspan=1)
         self.rng_seed_entry.grid(row=4, column=panel_cols-2, padx=self.allpad, pady=self.allpad)
         self.rng_seed_entry_button.grid(row=4, column=panel_cols-1, padx=self.allpad, pady=self.allpad)
         self.open_TB_button.grid(row = 5, column=0, padx=self.allpad, pady=2*self.allpad, columnspan=panel_cols)
         
-
-    def set_rng_seed(self):
-        print(f'Setting RNG seed to {self.rng_seed_entry.get()}')
-        if self.use_rng_seed_val.get():
-            self.rng_seed_entry.config(state=NORMAL)
-            self.wfc.set_seed(int(self.rng_seed_entry.get()))
-        else:
-            self.rng_seed_entry.config(state=DISABLED)
-            self.wfc.set_seed(None)
-
-        self.wfc.init_rng()
-        self.run_draw()
-
     def create_canvas(self):
         if self.canvas is not None:
             self.canvas.delete('all')
@@ -199,15 +191,43 @@ class WFC_GUI():
         self.tk_img = ImageTk.PhotoImage(self.img, master = self.canvas)
         self.refresh_canvas()
 
+    def set_rng_seed(self):
+        print(f'Setting RNG seed to {self.rng_seed_entry.get()}')
+        if self.use_rng_seed_val.get():
+            self.rng_seed_entry.config(state=NORMAL)
+            self.wfc.set_seed(int(self.rng_seed_entry.get()))
+        else:
+            self.rng_seed_entry.config(state=DISABLED)
+            self.wfc.set_seed(None)
+
+        self.wfc.init_rng()
+        print('Running from WFC_GUI.set_rng_seed()')
+        self.run_draw()
+
+    def set_wfc_toggle(self, val):
+        self.wfc_toggle = val % len(self.wfc_dict.keys())
+
+    def set_active_wfc(self, wfc_idx):
+        self.set_wfc_toggle(wfc_idx)
+        self.wfc = self.wfc_dict[wfc_idx]
+
+    def set_animated(self):
+        self.run_animated = self.animboxval.get() == 1
+
+    def update_rules(self):
+        for w in self.wfc_dict.values():
+            w.set_rules(self.wfc_rules.get())
+        print('Running from WFC_GUI.update_rules()')
+        self.run_draw()
+
     def print_tile_stats(self, idx):
         t = self.wfc.tile_map[idx]
-        print(f'\nTile @ {idx} has collapsed ID {t.collapsed},\n -possible tile array {t.possible},\n -distribution {t.distribution}')
+        print(f'\nTile @ {idx} has collapsed ID {t.collapsed}, IDX {self.wfc.template.tileset.idANDidx[t.collapsed]}\n -possible tile array {t.possible},\n -distribution {t.distribution}')
         print(f' -prob_sum: {sum(t.distribution * t.possible)}\n -entropy: {t.entropy}')
 
     def handle_mouse_motion(self, event):
         idx = self.get_grid_idx_from_event(event)
         self.highlight_hovered_square(idx)
-
 
     def highlight_hovered_square(self, hover_idx):
         self.canvas.delete("square_highlight")
@@ -216,29 +236,9 @@ class WFC_GUI():
             self.canvas.create_rectangle(x, y, x + self.wfc.template.tileset.tile_px_w, y + self.wfc.template.tileset.tile_px_h, 
                                         outline="cyan", tag="square_highlight")
 
-    # def handle_leave_canvas(self, event):
-    #     self.canvas.delete("square_highlight")
-
     def handle_canvas_click(self, event):
         idx = self.get_grid_idx_from_event(event)
         self.print_tile_stats(idx)
-        
-
-    def grid_to_pixel(self, grid_idx, use_canvas_pad=True):
-        '''grid_idx is in (col, row) format, output is in (x, y) pixels'''
-        return (grid_idx[0] * self.wfc.template.tileset.tile_px_w + self.canvas_pad*use_canvas_pad,
-                grid_idx[1] * self.wfc.template.tileset.tile_px_h + self.canvas_pad*use_canvas_pad)
-    
-    def pixel_to_grid(self, pixel, use_canvas_pad=True):
-        '''convert (x,y) pixel to grid dims (row, col)'''
-        return ((pixel[0] - self.canvas_pad*use_canvas_pad) // (self.wfc.template.tileset.tile_px_w),
-                (pixel[1] - self.canvas_pad*use_canvas_pad) // (self.wfc.template.tileset.tile_px_h))
-
-    def get_grid_idx_from_event(self, event):
-        idx = self.pixel_to_grid((event.x, event.y))
-        if min(idx) < 0 or idx[0] >= self.wfc.grid_size[0] or idx[1] >= self.wfc.grid_size[0]:
-            return None
-        return idx
 
     def handle_advance_tileset(self, event):
         dir = 0
@@ -249,15 +249,11 @@ class WFC_GUI():
         self.advance_tileset(dir)
 
     def advance_tileset(self, dir):
-        # self.advance = True
         self.set_wfc_toggle(self.wfc_toggle + dir)
         self.set_active_wfc(self.wfc_toggle)
         self.tileset_label.config(text=self.wfc.template.tileset.name)
+        print("Running from WFC_GUI.advance_tileset()")
         self.run_draw()
-
-
-    def close_win(self, event=None):
-        self.root.destroy()
 
     def save_result(self, event):
         print(f'\nSaving...')
@@ -308,52 +304,70 @@ class WFC_GUI():
     @classmethod
     def load_Templates(cls):
         from wfc_fromtemplate import WFC
-        # grid_dims = (500, 300) # ~ 1min per solve
-        # grid_dims = (80, 55) # < 1s per solve
-        # grid_dims = (50, 35)
-        grid_dims = (30, 20)
-        # grid_dims = (10,10)
-        TileSet.default_scale = 3
+
+        grid_dims = (40, 30)
+        TileSet.default_scale = 2
         run_animated = False
-        use_sockets  = True
-        save_result  = False
-
-
         
         default = "default_tile_set"
         village = "village_tile_set2"
         ocean   = "ocean_tile_set"
         seaweed = "seaweed_set"
-
+        bright  = "bright_set"
         dir     = f"assets/"
+
         default_path = os.path.join(dir, default, f'{default}_template.json')
         village_path = os.path.join(dir, village, f'{village}_template.json')
         ocean_path   = os.path.join(dir,   ocean, f'{ocean  }_template.json')
         seaweed_path = os.path.join(dir, seaweed, f'{seaweed}_template.json')
+        bright_path  = os.path.join(dir,  bright, f'{bright }_template.json')
             
-        
         defaultTemplate = Template(default)
         defaultTemplate.load(default_path)
-        defaultWFC = WFC(grid_dims, defaultTemplate, use_sockets=use_sockets)
+        defaultWFC = WFC(grid_dims, defaultTemplate)
+        dict = defaultTemplate.tileset.socket_matches
+
+        # # Debugging Template.socket_matches
+        # print(f"KEY:")
+        # last = 0
+        # for idx in range(defaultTemplate.tileset.count):
+        #     tile_id = defaultTemplate.tileset.idANDidx[idx]
+        #     if tile_id[0] != last:
+        #         print("")
+        #     print(f'{idx}: {tile_id}', end=", ")
+        #     last = tile_id[0]
+
+        # for tile_idx, directions in dict.items():
+        #     print(f'\n{defaultTemplate.tileset.idANDidx[tile_idx]}:')
+        #     for direction, possible in directions.items():
+        #         print(f'    "{direction}": {possible}')
+        #     print("")
 
         villageTemplate = Template(village)
         villageTemplate.load(village_path)
-        villageWFC = WFC(grid_dims, villageTemplate, use_sockets=use_sockets)
+        villageWFC = WFC(grid_dims, villageTemplate)
         
         oceanTemplate   = Template(ocean)
         oceanTemplate.load(ocean_path)
-        oceanWFC = WFC(grid_dims, oceanTemplate, use_sockets=use_sockets)
+        oceanWFC = WFC(grid_dims, oceanTemplate)
 
         seaweedTemplate = Template(seaweed)
         seaweedTemplate.load(seaweed_path)
-        seaweedWFC = WFC(grid_dims, seaweedTemplate, use_sockets=use_sockets)
+        seaweedWFC = WFC(grid_dims, seaweedTemplate)
+
+        brightTemplate = Template(bright)
+        brightTemplate.tileset.set_scale(5)
+        brightTemplate.load(bright_path)
+        brightWFC = WFC(grid_dims, brightTemplate)
 
         return {0: defaultWFC, 
                 1: villageWFC,
                 2: oceanWFC,
-                3: seaweedWFC}
+                3: seaweedWFC,
+                4: brightWFC}
 
     def launch(self):
+        print('Running from WFC_GUI.launch()')
         self.run_draw()
         self.root.mainloop()
             

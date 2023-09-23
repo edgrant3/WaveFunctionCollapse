@@ -1,0 +1,136 @@
+{
+    "tileset": {
+        "name": "bright_set",
+        "tiles": [
+
+            {
+                "id": 0,
+                "image": "assets/bright_set/0.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 10,
+                "sockets": {
+                    "N": "AAA",
+                    "E": "AAA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 1,
+                "image": "assets/bright_set/1.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 5,
+                "sockets": {
+                    "N": "BBB",
+                    "E": "BBB",
+                    "S": "BBB",
+                    "W": "BBB"
+                }
+
+            },
+
+            {
+                "id": 2,
+                "image": "assets/bright_set/2.png",
+                "rotations": [0],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "CCC",
+                    "E": "CCC",
+                    "S": "CCC",
+                    "W": "CCC"
+                }
+
+            },
+
+            {
+                "id": 3,
+                "image": "assets/bright_set/3.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AKB",
+                    "E": "BKA",
+                    "S": "AAA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 4,
+                "image": "assets/bright_set/4.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "AKB",
+                    "E": "BBB",
+                    "S": "BKA",
+                    "W": "AAA"
+                }
+
+            },
+
+            {
+                "id": 5,
+                "image": "assets/bright_set/5.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "BBB",
+                    "E": "BBB",
+                    "S": "BKA",
+                    "W": "AKB"
+                }
+
+            },
+
+            {
+                "id": 6,
+                "image": "assets/bright_set/6.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "BAC",
+                    "E": "CCC",
+                    "S": "CAB",
+                    "W": "BBB"
+                }
+
+            },
+
+            
+            {
+                "id": 7,
+                "image": "assets/bright_set/7.png",
+                "rotations": [0, 1, 2, 3],
+                "patch_tile": false,
+                "ignore": false,
+                "weight": 1,
+                "sockets": {
+                    "N": "BAC",
+                    "E": "CAB",
+                    "S": "BBB",
+                    "W": "BBB"
+                }
+
+            }
+        ]
+    }
+}

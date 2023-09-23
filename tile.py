@@ -7,6 +7,7 @@ import copy
 from PIL import ImageTk, Image
 
 import numpy as np
+import wfc_fromtemplate as wfc
 
 
 class Direction():
@@ -79,7 +80,8 @@ class TileSet():
     def __init__(self, tileset_name):
         self.name = tileset_name
         self.tiles     = {} # dict: maps tileID (tile, rotation) to corresponding Tile instance
-        self.idANDidx  = {} # dict: maps tileID (tile, rotation) to int value
+        self.idANDidx  = {} # dict: maps tileID (tile, rotation) to int value and vice versa
+        self.socket_matches = {}
         self.scale     = TileSet.default_scale
         self.tile_px_h = None
         self.tile_px_w = None
@@ -90,6 +92,24 @@ class TileSet():
     def set_scale(self, scale):
         self.scale = scale
         self.generate()
+
+    def build_socket_matches(self):
+        ''' Build a dict with integer keys for each tile (mapped from (id, rot) via self.idANDidx)
+            which encodes which tiles are compatible with the key tile in each cardinal direction
+            (N,E,S,W) using a binary array of len self.count where a value of 1 is compatible and
+            0 is not and the idx along the array corresponds to another tile's integer id
+            socket_matches = {tile_id: {direction: possible_arr}}
+        '''
+        for id, tile in self.tiles.items():
+                self.socket_matches[self.idANDidx[id]] = {}
+                for dir in Tile.directions:
+                    socket = tile.sockets[dir]
+                    opp_dir = Tile.directions[dir].opp
+                    neighbor_possible = np.array([1 if socket == self.tiles[self.idANDidx[idx]].sockets[opp_dir][::-1]
+                                         else 0 for idx in range(self.count)])
+                    self.socket_matches[self.idANDidx[id]][dir] = neighbor_possible
+
+
 
     def generate_error_tile(self):
         source_image_size = PIL.Image.open(self.tiles[(0, 0)].source_image_path).size
@@ -115,6 +135,8 @@ class TileSet():
         with open(os.path.join(dir, f'{self.name}.json')) as file:
             file_contents = file.read()
         path = os.path.join(dir, "processed_images")
+        if not os.path.exists(path):
+            os.mkdir(path)
 
         tileset_JSON = json.loads(file_contents)["tileset"]
 
@@ -123,7 +145,7 @@ class TileSet():
         for tile in tileset_JSON["tiles"]:
             if not tile["ignore"]:
 
-                new_tile = Tile(tile["id"], tile["image"], tile["weight"], tile["patch_tile"])
+                new_tile = Tile(id=tile["id"], source_path=tile["image"], weight=tile["weight"], ispatch=tile["patch_tile"])
 
                 img_path, img_size = new_tile.create_scaled_image(self.scale, tile["image"], path)
                 new_tile.image_path = img_path
@@ -136,6 +158,7 @@ class TileSet():
                     img_path = new_tile.create_rotated_image(rot, path)
 
                     rotated_tile = copy.deepcopy(new_tile)
+                    # print(f'{self.name}, {(tile["id"], rot)}, patch: {rotated_tile.ispatch}')
                     rotated_tile.image = PIL.Image.open(img_path)
                     rotated_tile.image_path = img_path
                     rotated_tile.rot = rot
@@ -153,6 +176,8 @@ class TileSet():
             self.idANDidx[tileID] = idx
             self.idANDidx[idx] = tileID    
 
+
+        self.build_socket_matches()
         if printout:
             print(f'Tileset Keys (ids) ({self.count}):')
             for tile_id, tile_idx in self.idANDidx.items():
@@ -168,23 +193,49 @@ class waveTile():
 ##############################################
 
 class waveTileAdvanced():
-    def __init__(self, distribution=[], possible=[], collapsed = None):
-        self.distribution = distribution
+    def __init__(self, distribution=None, possible=None, collapsed = None):
+        self.distribution = distribution # nparray of size (tileset.count,): encodes adjacency probabilities from template
         self.collapsed = collapsed # tuple id (id, rot) of collapsed tile when collapsed
-        self.possible = possible # now a binary mask to be applied to distribution
+        self.possible = possible # # nparray of size (tileset.count,): a binary mask of socket-compatible 4-neighbors
         self.entropy = np.inf
 
-    def compute_entropy(self):
+    def compute_entropy(self, rules):
+        # val_array = self.possible
+        # if rules in [wfc.WFCRules.BOTH_RELAXED, wfc.WFCRules.BOTH_STRICT]:
+        #     val_array *= self.distribution
+        # # if rules == WFCRules.TEMPLATES_ONLY:
+        # #     val_array = self.distribution
+
+        # sum = np.sum(val_array)
+
+        # if sum == 0 and rules == wfc.WFCRules.BOTH_RELAXED:
+        #         val_array = self.possible
+        #         sum = np.sum(val_array)
+
+        # if sum == 0:
+        #     # print('waveTile has no possible collapse options')
+        #     self.entropy = 0.0
+        #     return self.entropy
+        
+        # val_array = val_array / sum
+        # entropy = 0.0
+        # for val in val_array:
+        #     if val != 0:
+        #         entropy -= val * np.log(val)
+
+        # self.entropy = entropy
+        # return entropy
+    
         val_array = self.distribution * self.possible
         sum = np.sum(val_array)
 
-        if sum == 0:
+        if sum == 0 or rules == wfc.WFCRules.SOCKETS_ONLY:
             # self.entropy = np.inf
             # return np.inf
             val_array = np.array(self.possible)
             sum = np.sum(val_array)
             if sum == 0:
-                print('waveTile has no possible collapse options')
+                # print('waveTile has no possible collapse options')
                 self.entropy = 0.0
                 return self.entropy
         

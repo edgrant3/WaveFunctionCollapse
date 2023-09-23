@@ -1,12 +1,13 @@
 import numpy as np
 import json
 
-from tile import TileSet
+import tile
+# from tile import TileSet
       
 
 class Template():
     def __init__(self, tileset_name, height=15, width=15) -> None:
-        self.tileset = TileSet(tileset_name)
+        self.tileset = tile.TileSet(tileset_name)
         self.h            = height         # int: height of template grid
         self.h_max        = 30
         self.w            = width          # int: width  of template grid
