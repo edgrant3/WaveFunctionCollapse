@@ -1,10 +1,10 @@
 import tkinter as tk
-import os
 from tkinter import *
 from tkinter import filedialog
 from PIL import ImageTk, Image
-from tile import TileSet
-from template import Template
+
+from wfc import WFCRules
+# from template import Template
 
 def RGB2HEX(rgbcol):
     return '#%02x%02x%02x' % rgbcol
@@ -19,6 +19,7 @@ class WFC_GUI():
         self.wfc = wfc_dict[wfc_toggle]
 
         self.run_animated = run_animated
+        self.run_stepwise = False
         
         self.root = tk.Tk()
         self.root.title("Wave Function Collapse")
@@ -59,8 +60,12 @@ class WFC_GUI():
 
     def bind_events(self):
         # Window Events
-        self.root.bind("<Right>",  self.handle_advance_tileset)
-        self.root.bind("<Left>",   self.handle_advance_tileset)
+        if self.run_stepwise:
+            self.root.bind("<Right>",  self.run_draw_step)
+            # self.root.bind("<Left>",   self.handle_advance_tileset)
+        else:
+            self.root.bind("<Right>",  self.handle_advance_tileset)
+            self.root.bind("<Left>",   self.handle_advance_tileset)
         self.root.bind("<Escape>", self.close_win)
         self.root.bind("<space>",  self.run_draw)
         # Canvas Events
@@ -76,7 +81,20 @@ class WFC_GUI():
     def arrange_widgets(self):
         self.panel.grid(row=0, column=0, padx=self.allpad, pady=self.allpad, sticky=N+S+E+W)
         self.canvas.grid(row=0, column=1, padx=self.allpad, pady=self.allpad)
-      
+    
+    def invoke_rule_button(self, rule):
+        if rule.value == WFCRules.SOCKETS_ONLY.value:
+            self.rules_sockets_only_button.invoke()
+
+        elif rule.value == WFCRules.TEMPLATES_ONLY.value:
+            self.rules_templates_only_button.invoke()
+
+        elif rule.value == WFCRules.BOTH_STRICT.value:
+            self.rules_both_strict_button.invoke()
+
+        elif rule.value == WFCRules.BOTH_RELAXED.value:
+            self.rules_both_relaxed_button.invoke()
+
     def create_panel(self):
         if self.panel is not None:
             self.control_panel.destroy()
@@ -94,6 +112,10 @@ class WFC_GUI():
         self.animboxval = IntVar()
         self.animate_checkbox = tk.Checkbutton(self.panel, text='Animate Solution', variable=self.animboxval, onvalue=1, offvalue=0, command=self.set_animated)
 
+        ### run stepwise checkbox
+        self.stepboxval = IntVar()
+        self.stepper_checkbox = tk.Checkbutton(self.panel, text='Manual Step Through', variable=self.stepboxval, onvalue=1, offvalue=0, command=self.set_stepwise)
+
         ### WFC Rules Radiobutton Set
         rf_col = "white" #RGB2HEX((230,230,230))
         self.rules_frame = tk.Frame(self.panel, bg=rf_col, borderwidth=1, highlightthickness=2)
@@ -107,7 +129,7 @@ class WFC_GUI():
         self.rules_templates_only_button.grid(row=1, column=0, padx=self.allpad, pady=0, sticky=W)
         self.rules_both_strict_button.grid(   row=2, column=0, padx=self.allpad, pady=0, sticky=W)
         self.rules_both_relaxed_button.grid(  row=3, column=0, padx=self.allpad, pady=0, sticky=W)
-        self.rules_both_strict_button.invoke()
+        self.invoke_rule_button(self.wfc_dict[0].rules)
 
         ### left, right, and refresh buttons
         self.control_frame = tk.Frame(self.panel, background="white", borderwidth=0, highlightthickness=0)
@@ -144,15 +166,33 @@ class WFC_GUI():
         ### Open TemplateBuilder button
         self.open_TB_button = tk.Button(self.panel, text="Open Template Builder", command=self.open_template_builder)
         
+        ### Hovered tile stats set
+        self.hovered_tile_frame = tk.Frame(self.panel, bg=rf_col, borderwidth=1, highlightthickness=2)
+        self.hovered_tile_label = tk.Label(self.hovered_tile_frame, text="Tile Stats:", bg=RGB2HEX((220,220,220)), 
+                                fg="black", font=("Calibri", 12), padx=0)
+        self.hovered_tile_label.grid(row=0, column=0, padx=0, pady=self.allpad, sticky=W)
+        # Hovered tile collapsed
+        self.hovered_tile_collapsed_label = tk.Label(self.hovered_tile_frame, text="Collapsed ID: ", bg="white", fg="black", font=("Calibri", 12))
+        self.hovered_tile_collapsed_value = tk.Label(self.hovered_tile_frame, text="", bg="white", fg="black", font=("Calibri", 12))
+        self.hovered_tile_collapsed_label.grid(row=1, column=0, padx=0, pady=0, sticky=W)
+        self.hovered_tile_collapsed_value.grid(row=1, column=1, padx=0, pady=0, sticky=W)
+        # Hovered tile entropy
+        self.hovered_tile_entropy_label = tk.Label(self.hovered_tile_frame, text="Entropy: ", bg="white", fg="black", font=("Calibri", 12))
+        self.hovered_tile_entropy_value = tk.Label(self.hovered_tile_frame, text="", bg="white", fg="black", font=("Calibri", 12))
+        self.hovered_tile_entropy_label.grid(row=2, column=0, padx=0, pady=0, sticky=W)
+        self.hovered_tile_entropy_value.grid(row=2, column=1, padx=0, pady=0, sticky=W)
+
         # ARRANGE THE PANEL WIDGETS
         self.tileset_label.grid(row=0, column=0, padx=self.allpad, pady=(self.allpad, self.allpad), sticky=N, columnspan=panel_cols)
         self.control_frame.grid(row=1, column=0, padx=0, pady=(0, self.allpad), columnspan=panel_cols)
         self.rules_frame.grid(row=2, column=0, padx=0, pady=(0,self.allpad), columnspan=panel_cols)
-        self.animate_checkbox.grid(row=3, column=0, padx=self.allpad, pady=0, columnspan=panel_cols, sticky=W)
+        self.animate_checkbox.grid(row=3, column=0, padx=self.allpad, pady=0, columnspan=2, sticky=W)
+        self.stepper_checkbox.grid(row=3, column=1, padx=self.allpad, pady=0, columnspan=1, sticky=W)
         self.rng_seed_checkbox.grid(row=4, column=0, padx=self.allpad, pady=self.allpad, columnspan=1)
         self.rng_seed_entry.grid(row=4, column=panel_cols-2, padx=self.allpad, pady=self.allpad)
         self.rng_seed_entry_button.grid(row=4, column=panel_cols-1, padx=self.allpad, pady=self.allpad)
         self.open_TB_button.grid(row = 5, column=0, padx=self.allpad, pady=2*self.allpad, columnspan=panel_cols)
+        self.hovered_tile_frame.grid(row=7, column=0, padx=self.allpad, pady=2*self.allpad, columnspan=panel_cols)
         
     def create_canvas(self):
         if self.canvas is not None:
@@ -213,6 +253,14 @@ class WFC_GUI():
 
     def set_animated(self):
         self.run_animated = self.animboxval.get() == 1
+        self.run_stepwise = False
+        self.bind_events()
+
+    def set_stepwise(self):
+        self.wfc.clear_data()
+        self.run_stepwise = self.stepboxval.get() == 1
+        self.run_animated = False
+        self.bind_events()
 
     def update_rules(self):
         for w in self.wfc_dict.values():
@@ -221,13 +269,36 @@ class WFC_GUI():
         self.run_draw()
 
     def print_tile_stats(self, idx):
+        if idx not in self.wfc.tile_map:
+            print(f'\nNo tile exists @ {idx}')
+            return
         t = self.wfc.tile_map[idx]
-        print(f'\nTile @ {idx} has collapsed ID {t.collapsed}, IDX {self.wfc.template.tileset.idANDidx[t.collapsed]}\n -possible tile array {t.possible},\n -distribution {t.distribution}')
-        print(f' -prob_sum: {sum(t.distribution * t.possible)}\n -entropy: {t.entropy}')
+        # print(f'\nTile @ {idx} has collapsed ID {t.collapsed}')
+        print(f'\nTile @ {idx} has collapsed ID {t.collapsed}, IDX {(t.collapsed if t.collapsed is None else self.wfc.template.tileset.idANDidx[t.collapsed])}\n -possible tile array {t.possible},\n -distribution {t.distribution}')
+        print(f' -prob_sum: {sum(t.distribution * t.possible)}\n -entropy: {t.entropy}\n')
 
     def handle_mouse_motion(self, event):
         idx = self.get_grid_idx_from_event(event)
         self.highlight_hovered_square(idx)
+        hovered_tile = self.get_hovered_tile(idx)
+        if hovered_tile is not None:
+            self.display_hovered_square_stats(hovered_tile)
+
+    def get_hovered_tile(self, idx):
+        if idx in self.wfc.tile_map:
+            return self.wfc.tile_map[idx]
+        # return self.wfc.create_waveTileAdvanced()
+        return None
+
+    def display_hovered_square_stats(self, tile):
+        self.hovered_tile_entropy_value.config(text=round(tile.entropy, 3))
+        if tile.collapsed is None:
+            self.hovered_tile_collapsed_value.config(text=f'(None)')
+            return
+
+        self.hovered_tile_collapsed_value.config(text=f'({tile.collapsed[0]}, {tile.collapsed[1]})')
+
+
 
     def highlight_hovered_square(self, hover_idx):
         self.canvas.delete("square_highlight")
@@ -286,6 +357,10 @@ class WFC_GUI():
         self.root.update()
 
     def run_draw(self, event=None):
+        if self.run_stepwise:
+            self.run_draw_step()
+            return
+        
         self.wfc.clear_data()
 
         if self.wfc_toggle == 3:
@@ -295,76 +370,18 @@ class WFC_GUI():
         self.wfc.run()
         self.draw_all(refresh=self.run_animated)
 
+    def run_draw_step(self, event=None):
+        if self.wfc_toggle == 3 and self.wfc.is_start:
+            seabed_region = (0, self.wfc.grid_size[1]-1, self.wfc.grid_size[0], self.wfc.grid_size[1])
+            self.wfc.enforce_region(seabed_region, (5,0))
+        self.wfc.run_step()
+        self.draw_all()
+
     def open_template_builder(self):
         from template_builder import TemplateBuilder_GUI
         self.close_win()
         template_GUI = TemplateBuilder_GUI()
         template_GUI.launch()
-
-    @classmethod
-    def load_Templates(cls):
-        from wfc import WFC
-
-        grid_dims = (40, 30)
-        TileSet.default_scale = 2
-        run_animated = False
-        
-        default = "default_tile_set"
-        village = "village_tile_set2"
-        ocean   = "ocean_tile_set"
-        seaweed = "seaweed_set"
-        bright  = "bright_set"
-        dir     = f"assets/"
-
-        default_path = os.path.join(dir, default, f'{default}_template.json')
-        village_path = os.path.join(dir, village, f'{village}_template.json')
-        ocean_path   = os.path.join(dir,   ocean, f'{ocean  }_template.json')
-        seaweed_path = os.path.join(dir, seaweed, f'{seaweed}_template.json')
-        bright_path  = os.path.join(dir,  bright, f'{bright }_template.json')
-            
-        defaultTemplate = Template(default)
-        defaultTemplate.load(default_path)
-        defaultWFC = WFC(grid_dims, defaultTemplate)
-        dict = defaultTemplate.tileset.socket_matches
-
-        # # Debugging Template.socket_matches
-        # print(f"KEY:")
-        # last = 0
-        # for idx in range(defaultTemplate.tileset.count):
-        #     tile_id = defaultTemplate.tileset.idANDidx[idx]
-        #     if tile_id[0] != last:
-        #         print("")
-        #     print(f'{idx}: {tile_id}', end=", ")
-        #     last = tile_id[0]
-
-        # for tile_idx, directions in dict.items():
-        #     print(f'\n{defaultTemplate.tileset.idANDidx[tile_idx]}:')
-        #     for direction, possible in directions.items():
-        #         print(f'    "{direction}": {possible}')
-        #     print("")
-
-        villageTemplate = Template(village)
-        villageTemplate.load(village_path)
-        villageWFC = WFC(grid_dims, villageTemplate)
-        
-        oceanTemplate   = Template(ocean)
-        oceanTemplate.load(ocean_path)
-        oceanWFC = WFC(grid_dims, oceanTemplate)
-
-        seaweedTemplate = Template(seaweed)
-        seaweedTemplate.load(seaweed_path)
-        seaweedWFC = WFC(grid_dims, seaweedTemplate)
-
-        brightTemplate = Template(bright)
-        brightTemplate.tileset.set_scale(5)
-        brightTemplate.load(bright_path)
-        brightWFC = WFC(grid_dims, brightTemplate)
-
-        return {0: defaultWFC, 
-                1: villageWFC,
-                2: oceanWFC,
-                3: seaweedWFC,
-                4: brightWFC}
 
     def launch(self):
         print('Running from WFC_GUI.launch()')

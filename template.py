@@ -1,10 +1,12 @@
 import numpy as np
 import json
+import os
 
-import tile      
+import tile
 
 class Template():
-    def __init__(self, tileset_name, height=15, width=15) -> None:
+    h_default, w_default = 15, 15
+    def __init__(self, tileset_name, height=h_default, width=h_default) -> None:
         self.tileset = tile.TileSet(tileset_name)
         self.h            = height         # int: height of template grid
         self.h_max        = 30
@@ -61,6 +63,19 @@ class Template():
 
         self.tileset.generate()
         print(f'Successfully loaded Template from \n{filename}\n')
+
+    @classmethod
+    def load_templates(cls, filenames):
+
+        dir     = f"assets/"
+        templates = {}
+
+        for i, file in enumerate(filenames):
+            path = os.path.join(dir, file, file + '_template.json')
+            templates[i] = Template(file)
+            templates[i].load(path)
+
+        return templates
 
     def analyze(self, kernel_size, include_borders):
         self.analyzer.set_kernel_size(kernel_size)

@@ -7,7 +7,7 @@ import copy
 from PIL import ImageTk, Image
 
 import numpy as np
-import wfc as wfc
+from wfc import WFCRules
 
 
 class Direction():
@@ -80,6 +80,7 @@ class TileSet():
     def __init__(self, tileset_name):
         self.name = tileset_name
         self.tiles     = {} # dict: maps tileID (tile, rotation) to corresponding Tile instance
+        self.patch_idxs = [] # array containing indexes of tiles which have been identified as patches (only used to cover an otherwise error)
         self.idANDidx  = {} # dict: maps tileID (tile, rotation) to integer index and vice versa
         self.socket_matches = {}
         self.scale     = TileSet.default_scale
@@ -87,11 +88,24 @@ class TileSet():
         self.tile_px_w = None
         self.count = 0
 
+        self.error_id = (-1, 0)
+
+        self.default_possible     = None # binary mask, 1D np array of size self.count and dtype np.int0
+        self.default_distribution = None # 1D np array of size self.count, dytep int
+
         self.generate()
 
     def set_scale(self, scale):
         self.scale = scale
         self.generate()
+
+    def get_weights(self):
+        weights = []
+        for t_idx in range(self.count):
+            t_id = self.idANDidx[t_idx]
+            weights.append(self.tiles[t_id].weight)
+
+        return weights
 
     def build_socket_matches(self):
         ''' Build a dict with integer keys for each tile (mapped from (id, rot) via self.idANDidx)
@@ -109,7 +123,11 @@ class TileSet():
                                          else 0 for idx in range(self.count)])
                     self.socket_matches[self.idANDidx[id]][dir] = neighbor_possible
 
-
+    def generate_patch_idxs(self):
+        for tile_id, t in self.tiles.items():
+            if t.ispatch:
+                self.patch_idxs.append(self.idANDidx[tile_id])
+        self.default_possible[self.patch_idxs] = 0
 
     def generate_error_tile(self):
         source_image_size = PIL.Image.open(self.tiles[(0, 0)].source_image_path).size
@@ -170,12 +188,17 @@ class TileSet():
         self.tile_px_h = self.tiles[(0, 0)].image_size[1]
 
         self.generate_error_tile()
+
         # self.tiles[(-1, 0)].sockets = self.tiles[(0, 0)].sockets
         self.count = len(list(self.tiles.keys()))    
         for idx, tileID in enumerate(self.tiles.keys()):
             self.idANDidx[tileID] = idx
             self.idANDidx[idx] = tileID    
 
+        self.default_possible     = np.ones(self.count, dtype=np.int0)
+        self.default_distribution = np.ones(self.count, dtype=int)
+
+        self.generate_patch_idxs()
 
         self.build_socket_matches()
         if printout:
@@ -193,32 +216,34 @@ class waveTile():
 ##############################################
 
 class waveTileAdvanced():
-    def __init__(self, distribution=None, possible=None, collapsed = None):
+
+    def __init__(self, distribution=None, possible=None, collapsed=None, exclude=None):
         self.distribution = distribution # nparray of size (tileset.count,): encodes adjacency probabilities from template
         self.collapsed = collapsed # tuple id (id, rot) of collapsed tile when collapsed
         self.possible = possible # # nparray of size (tileset.count,): a binary mask of socket-compatible 4-neighbors
         self.entropy = np.inf
-
-    def compute_entropy(self, rules):
     
-        val_array = self.distribution * self.possible
+    def collapse(self, id):
+        self.collapsed = id
+
+    def compute_entropy(self, rules): 
+
+        val_array = self.possible
+
+        if rules != WFCRules.SOCKETS_ONLY:
+            val_array *= self.distribution
+
         sum = np.sum(val_array)
 
-        if sum == 0 or rules == wfc.WFCRules.SOCKETS_ONLY:
-            # self.entropy = np.inf
-            # return np.inf
-            val_array = np.array(self.possible)
-            sum = np.sum(val_array)
-            if sum == 0:
-                # print('waveTile has no possible collapse options')
-                self.entropy = 0.0
-                return self.entropy
+        if sum == 0.0:
+            self.entropy = np.inf
+            return self.entropy
         
         val_array = val_array / sum
-        entropy = 0.0
+        e = 0.0
         for val in val_array:
             if val != 0:
-                entropy -= val * np.log(val)
+                e -= val * np.log(val)
 
-        self.entropy = entropy
-        return entropy
+        self.entropy = e
+        return self.entropy
