@@ -42,8 +42,8 @@ While this socket-based approach allows me to get great results, I'm also workin
 ![](captures/InputImageGUI_V2.PNG)
 
 ## Log
-
-* 5/8/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
+* 4/22/2024: Convert lowest entropy uncollapsed neighbor tracking from inefficient 2D array min search to a heapq priority queue. Significantly reduced bloat but starting from scratch on incorporating template matching
+* 5/08/2023: Switch from graphics.py GraphWin to tkinter GUI builder for displaying output (individual draw calls are slower but has better documentation and flexibility for building out this resource as a tool for an artist)
 
 * 5/17/2023: Augment seaweed tileset to be fully solvable. Repair `enforce_region()` function to enable setting a rectangular region of the map to a specific tile. Misc. bugfixes highlighted by trying to implement the seaweed tileset.
 
