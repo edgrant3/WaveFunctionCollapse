@@ -1,16 +1,20 @@
-import enum
+from enum import Enum
 from PIL import ImageTk, Image
 import numpy as np
 
 import tile
 import template
 
+import heapq as hq
+
+from warnings import warn
+
 # TODO List:
 ### 1) Implement resolve_error() to recursively fix regions with error tiles
 ### 2) convert entropy map to heapq structure
 
 
-class WFCRules(enum.Enum):
+class WFCRules(Enum):
     SOCKETS_ONLY   = 1 # use waveTileAdvanced.possible
     TEMPLATES_ONLY = 2 # use waveTileAdvanced.distribution
     BOTH_STRICT    = 3 # use both .possible and .distribution
@@ -18,81 +22,133 @@ class WFCRules(enum.Enum):
 
 class WFC():
     seed = None
-    def __init__(self, grid_size, template, rules=WFCRules.SOCKETS_ONLY):
+    def __init__(self, grid_size, template, rules=WFCRules.SOCKETS_ONLY, start_idx=(0,0), start_id=(0,0)):
+        self.rules = rules        # establishses edge matching requirements
 
-        self.template = template
-        self.rules = rules
-        self.grid_size = grid_size
+        self.template = template  # template which may or may not be filled out, owns a tileset to use
+        self.i2i = self.template.tileset.idANDidx
 
-        self.win_size = (self.template.tileset.tile_px_w * grid_size[0], self.template.tileset.tile_px_h * grid_size[1])
-        self.entropy_map = np.full(grid_size, np.inf) # WAS: np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
-        self.tile_map    = {}  
-        self.start_idx = (0,0)
-        self.start_tile = (0,0)
-        self.num_uncollapsed = 0 # number of instantiated waveTileAdvanced that have not been collapsed
-        self.region_enforced = False
+        self.grid_size = grid_size  
+        self.win_size  = self.compute_win_size()
+        
+        self.tile_map   = {}    # Holds all waveTileAdv, in order of creation (ideally want this order of collapse)
+        # To store by order of collapse rather than creation, but keep uncollapsed tiles in the map so they can be
+        # easily influenced by tiles that collapse near them, when collapsing tiles I will simultaneously 
+        # pop and re-insert the entry via (a[key] = a.pop(key))
 
-        self.relative_neighbor_idxs, self.kernel_idxs = self.template.analyzer.get_neighbor_relative_idxs()
+        self.start_idx  = start_idx # Point in grid to first arbitrarily collapse
+        self.start_tile = start_id  # Arbitrary Tile ID to collapse the first tile down to
+
+        # heap queue struct to hold all visited but uncollapsed tiles (lowest entropy pops off first)
+        self.entropy_heapq = [] # [(entropy, idx), ...]
+        # len(self.entropy_heapq) replaces self.num_uncollapsed
+
+        self.kernel_rel_idxs, self.kernel_idxs = self.template.analyzer.get_neighbor_relative_idxs()
+
         self.init_rng()
 
-        self.default_possible     = np.ones(self.template.tileset.count, dtype=np.int0)
-        self.default_distribution = np.ones(self.template.tileset.count, dtype=int)
-        
-    
+        self.is_start = True
+
     @classmethod
     def set_seed(cls, seed):
         cls.seed = seed
 
-    def set_rules(self, rule_int):
-        self.rules = WFCRules(rule_int)
-        
-    def clear_data(self):
-        self.entropy_map = np.full(self.grid_size, np.inf) # WAS: np.ones((self.win.grid_dims[0], self.win.grid_dims[1])) * self.n_tiles
-        self.tile_map.clear() 
+    def compute_win_size(self):
+        return (self.template.tileset.tile_px_w * self.grid_size[0], \
+                self.template.tileset.tile_px_h * self.grid_size[1])
 
     def init_rng(self):
         if WFC.seed is None:
             self.rng = np.random.default_rng()
         else:
             self.rng = np.random.default_rng(WFC.seed)
-    
-    def use_template(self, template):
-        self.template = template
-    
-    def enforce_region(self, region, tile_id):
-        self.setup_patches()
-        self.region_enforced = True
-        region_ws = range(region[0], region[2])
-        region_hs = range(region[1], region[3])
-        for w_idx in region_ws:
-            for h_idx in region_hs:
-                idx = (w_idx, h_idx)
-                self.add_to_tilemap(grid_idx=idx, collapsed=tile_id)
-                self.entropy_map[idx] = self.tile_map[idx].entropy
 
-        for w_idx in region_ws:
-            for h_idx in region_hs:
-                idx = (w_idx, h_idx)
-                self.update_neighbors(idx)
+    def set_rules(self, rule_int):
+        self.rules = WFCRules(rule_int)
+
+    def clear_data(self):
+        self.entropy_heapq.clear()
+        self.tile_map.clear()
+        self.is_start = True
+
+    def use_template(self, template):
+        self.clear_data()
+        self.template = template
+        self.win_size = self.compute_win_size()
+
+    def is_inbounds(self, grid_idx):
+        return (grid_idx[0] >= 0 and grid_idx[0] < self.grid_size[0] and \
+                grid_idx[1] >= 0 and grid_idx[1] < self.grid_size[1])
+    
+    def create_waveTileAdvanced(self, collapsed=None, distribution=None, possible=None):
         
-    def is_inbounds(self, idx):
-        return (idx[0] >= 0 and idx[0] < self.grid_size[0] and
-                idx[1] >= 0 and idx[1] < self.grid_size[1])
+        if distribution is None:
+            distribution = np.copy(self.template.tileset.default_distribution)
+        if possible is None:
+            possible = np.copy(self.template.tileset.default_possible)
+
+        return tile.waveTileAdvanced(distribution, possible, collapsed) 
 
     def add_to_tilemap(self, grid_idx, collapsed=None):
-        self.tile_map[grid_idx] = tile.waveTileAdvanced(collapsed=collapsed, 
-                                                        distribution=self.default_distribution, 
-                                                        possible=self.default_possible)
-        if collapsed is None:
-            self.num_uncollapsed += 1
+        # Creates a new waveTileAdv and inserts it into the tile_map
+        # if not collapsed, push this instance's info onto the entropy queue
+        # if tis collapsed, update neighbors
+        self.tile_map[grid_idx] = self.create_waveTileAdvanced(collapsed)
 
+        # self.tile_map[grid_idx] = tile.waveTileAdvanced(collapsed=collapsed, 
+        #                                                 distribution=self.template.tileset.default_distribution, 
+        #                                                 possible=self.template.tileset.default_possible)
+        if collapsed is None:
+            hq.heappush(self.entropy_heapq, (np.inf, grid_idx))
+
+    def update_neighbors(self, grid_idx, collapsed_id=None):
+        if collapsed_id is None:
+            collapsed_id = self.tile_map[grid_idx].collapsed
+
+        collapsed_idx = self.i2i[collapsed_id]
+
+        # TODO: consider changing how data_encoded is stored so no id->idx conversion is needed here
+        if collapsed_idx not in self.template.data_encoded or collapsed_id == (-1, 0):
+            warn('Attempted to update neighbors with invalid or Error tile_id')
+            return
+        
+        if self.rules is not WFCRules.SOCKETS_ONLY:
+            self.update_neighbors_using_template(grid_idx, collapsed_id)
+            return
+
+        if self.rules is not WFCRules.TEMPLATES_ONLY:
+            self.update_neighbors_using_sockets(grid_idx, collapsed_id)
+        
+    def update_neighbors_using_sockets(self, grid_idx, collapsed_id):
+        # Sockets only apply to the 4 neighbors around the collapsed tile
+        for dir in tile.Tile.directions.values(): # ["N", "E", "S", "W"]:
+            if not dir.is_inbounds(grid_idx, self.grid_size):
+                continue
+            self.update_neighbor_using_sockets(grid_idx, dir, collapsed_id)
+
+    def update_neighbor_using_sockets(self, grid_idx, neighbor_dir, collapsed_id):
+        
+        neighbor_idx = (grid_idx[0] + neighbor_dir.idx[0], 
+                        grid_idx[1] + neighbor_dir.idx[1])
+
+        if neighbor_idx not in self.tile_map:
+            self.add_to_tilemap(neighbor_idx)
+
+        possible_mask  = self.template.tileset.socket_matches[self.i2i[collapsed_id]][neighbor_dir.dir]
+
+        self.tile_map[neighbor_idx].possible *= possible_mask #* self.tile_map[neighbor_idx].possible
+
+        new_entropy = self.tile_map[neighbor_idx].compute_entropy(self.rules)
+
+        # Add neighbor to heapq. Note: if already in heapq this will create a duplicate entry,
+        # but this is fine as the data is small and we can ignore duplicates that are popped after
+        # their corresponding tile has collapsed
+        hq.heappush(self.entropy_heapq, (new_entropy, neighbor_idx))
     
-    def check_neighbors_using_sockets(self, grid_idx, id):
+    def check_neighbors_using_sockets(self, grid_idx, candidate_tile_idx):
         ''' Used to check if tile of "id" is compatible with location "idx" in tile_map...
             returns True if its socket is compatible with collapsed neighbors' sockets or 
             uncollapsed neighbors' possible sockets '''
-        
-        candidate_tile_idx = self.template.tileset.idANDidx[id]
 
         for direction in tile.Tile.directions.values(): # ["N", "E", "S", "W"]
             if not direction.is_inbounds(grid_idx, self.grid_size):
@@ -125,274 +181,112 @@ class WFC():
                     return False
                 
         return True
-
-    def update_neighbors_using_sockets(self, grid_idx):
-        collapsed_tile_idx = self.template.tileset.idANDidx[self.tile_map[grid_idx].collapsed]
-        for direction in tile.Tile.directions.values(): # ["N", "E", "S", "W"]:
-            if not direction.is_inbounds(grid_idx, self.grid_size):
-                continue
-            self.update_single_neighbor_using_sockets(grid_idx, direction, collapsed_tile_idx)
-
-    def update_single_neighbor_using_sockets(self, grid_idx, neighbor_direction, collapsed_idx=None):
-            if collapsed_idx is None:
-                collapsed_idx = self.template.tileset.idANDidx[self.tile_map[grid_idx].collapsed]
-            dir = neighbor_direction.dir
-            dir_idx = neighbor_direction.idx
-            neighbor_idx = (grid_idx[0] + dir_idx[0], grid_idx[1] + dir_idx[1])
-
-            if neighbor_idx not in self.tile_map:
-                self.add_to_tilemap(neighbor_idx)
-
-            adjacent_possible  = self.template.tileset.socket_matches[collapsed_idx][dir]
-            self.tile_map[neighbor_idx].possible = adjacent_possible * self.tile_map[neighbor_idx].possible              
-            self.entropy_map[neighbor_idx] = self.tile_map[neighbor_idx].compute_entropy(self.rules)
-
-    def update_neighbors_using_template(self, grid_idx, collapsed_idx):
-        neighbor_idxs  = self.template.analyzer.get_neighbor_idxs(grid_idx)
-        for i, neighbor_idx in enumerate(neighbor_idxs):
-            
-            if not self.is_inbounds(neighbor_idx): continue
-            if neighbor_idx not in self.tile_map:
-                self.add_to_tilemap(neighbor_idx)
-
-            if self.tile_map[neighbor_idx].collapsed is not None: continue
-            if not collapsed_idx in self.template.data_encoded:   continue
-
-            k_idx = self.kernel_idxs[i]
-            encoded_distribution = self.template.data_encoded[collapsed_idx][:, k_idx[0], k_idx[1]]
-            self.tile_map[neighbor_idx].distribution = self.tile_map[neighbor_idx].distribution + encoded_distribution
-            exclude_idxs = np.argwhere(encoded_distribution == 0)
-            self.tile_map[neighbor_idx].distribution[exclude_idxs] = 0
-            self.entropy_map[neighbor_idx] = self.tile_map[neighbor_idx].compute_entropy(self.rules) # returns AND sets entropy for wavetile
-
-
-    def update_tile_from_neighbors_using_template(self, grid_idx):
-        for relative_idx in self.relative_neighbor_idxs:
-            neighbor_idx = (grid_idx[0] + relative_idx[0], grid_idx[1] + relative_idx[1])
-            print(relative_idx)
-            if not self.is_inbounds(neighbor_idx):              continue
-            if neighbor_idx not in self.tile_map:               continue
-
-            #debug
-            if self.tile_map[neighbor_idx] is None:
-                print(f'NONE waveTileAdvanced @ {neighbor_idx}, relative: {relative_idx}')
-                continue
-
-            if self.tile_map[neighbor_idx].collapsed is None:   continue
-
-            collapsed_idx = self.tile_map[neighbor_idx].collapsed
-            if not collapsed_idx in self.template.data_encoded: continue
-
-            k_idx = (grid_idx[0] - relative_idx[0], grid_idx[1] - relative_idx[1])
-            encoded_distribution = self.template.data_encoded[collapsed_idx][:, k_idx[0], k_idx[1]]
-            self.tile_map[grid_idx].distribution = self.tile_map[grid_idx].distribution + encoded_distribution
-            self.entropy_map[grid_idx] = self.tile_map[grid_idx].compute_entropy(self.rules) # returns AND sets entropy for wavetile
-            
-
-    def update_tile_from_neighbors_using_sockets(self, grid_idx):
-        for direction in tile.Tile.directions.values(): # ["N", "E", "S", "W"]:
-            if not direction.is_inbounds(grid_idx, self.grid_size):
-                continue
-            
-            neighbor_idx = (grid_idx[0] + direction.idx[0], grid_idx[1] + direction.idx[1])
-            if self.tile_map[neighbor_idx].collapsed is None:
-                continue
-
-            self.update_single_neighbor_using_sockets(neighbor_idx, tile.Tile.directions[direction.opp])
-        pass
     
-    def reset_tile(self, grid_idx):
-        self.tile_map[grid_idx] = self.add_to_tilemap(grid_idx)
+    def collapse_tile(self, grid_idx, collapsed_id):
 
-    def refresh_neighbors(self, grid_idx):
-        ''' reverse the effect of a collapsed tile which is getting changed 
-            *imaginging cool effect* - user drawing in tiles they prefer and the image
-            updates accordingly in real time'''
-        if self.rules != WFCRules.SOCKETS_ONLY:
-            for relative_idx in self.relative_neighbor_idxs:
-                neighbor_idx = (grid_idx[0] + relative_idx[0], grid_idx[1] + relative_idx[1])
-                if not self.is_inbounds(neighbor_idx):            continue
-                if neighbor_idx not in self.tile_map:             continue
-                self.reset_tile(grid_idx)
+        if grid_idx not in self.tile_map:
+            self.add_to_tilemap(grid_idx, collapsed_id)
+        else:
+            self.tile_map[grid_idx].collapse(collapsed_id)
 
-                self.update_tile_from_neighbors_using_template(neighbor_idx)
+        # pop and re-insert collapsed item to capture it's collapse order in dict for later utility
+        # TODO: test if this method is efficient enought to warrant not just storing another array for collapse order
+        self.tile_map[grid_idx] = self.tile_map.pop(grid_idx)
 
-        if self.rules != WFCRules.TEMPLATES_ONLY:
-            for direction in tile.Tile.directions.values(): # ["N", "E", "S", "W"]:
-                if not direction.is_inbounds(grid_idx, self.grid_size):
-                    continue
-                neighbor_idx = (grid_idx[0] + direction.idx[0], grid_idx[1] + direction.idx[1])
-                self.update_tile_from_neighbors_using_sockets(grid_idx)
-
-    def update_neighbors(self, grid_idx):
-        collapsed_tile_idx = self.template.tileset.idANDidx[self.tile_map[grid_idx].collapsed]
-        if collapsed_tile_idx not in self.template.data_encoded or self.tile_map[grid_idx].collapsed == (-1, 0):
-            return
+        self.update_neighbors(grid_idx, collapsed_id)
         
-        if self.rules != WFCRules.SOCKETS_ONLY:
-            self.update_neighbors_using_template(grid_idx, collapsed_tile_idx)
+    def collapse(self):
 
-        if self.rules != WFCRules.TEMPLATES_ONLY:
-            self.update_neighbors_using_sockets(grid_idx)
-
-    def resolve_error(self, err_idx):
-        '''Recursively re-evaluates neighbors such that a valid tile can be selected in the place of an error tile'''
-        print(f'TBD: resolving error originating @ {err_idx}')
-        if True:#self.rules == WFCRules.BOTH_RELAXED:#self.allow_offtemplate_matches:
-            # TODO: implement "weaker" solution that just tries to get a viable tile
-            #       from neighbors' "possible" arrays
-
-            # IDEA: Start with neighbor with highest non-infinte entropy as this will
-            #       have the most options. Definitely need to avoid 0-entropy tiles
-            #       which either have a single option or are error tiles themselves?
-
-
-            # 1) itereate through all tiles and select the one which has most agreement among 4-neighbors' sockets
-            # 1a) if not unanimous, recurse to errant neighbor 
-            neighbors = []
-            for direction in tile.Tile.directions.values():
-                neighbor_idx = (err_idx[0] + direction.idx[0], err_idx[1] + direction.idx[1])
-
-                if not direction.is_inbounds(err_idx, self.grid_size): continue
-                if neighbor_idx not in self.tile_map:                  continue
-                if self.tile_map[neighbor_idx].collapsed is None:      continue
-
-                neighbors.append((direction, neighbor_idx, self.tile_map[neighbor_idx].collapsed))
-
-            num_neighbors = len(neighbors)
-            neighbor_agreement = np.zeros((num_neighbors, self.template.tileset.count))
-            for i, n in enumerate(neighbors):
-                collapsed_neighbor_idx = self.template.tileset.idANDidx[n[2]]
-                agreement = self.template.tileset.socket_matches[collapsed_neighbor_idx][n[0].opp]
-                neighbor_agreement[i,:] = agreement
-
-            votes = np.sum(neighbor_agreement, axis=0)
-            possible_idxs = np.argwhere(votes == np.max(votes)).flatten()
-
-            chosen_idx = self.rng.choice(possible_idxs, 1)[0]
-            chosen_id  = self.template.tileset.idANDidx[chosen_idx]
-            self.tile_map[err_idx].collapse(chosen_id)
-
-            if votes[chosen_idx] == num_neighbors:
-                return chosen_id
-            
-            print(f'{votes[chosen_idx]} neighbors to error need cleaning up...')
-            errant_neighbors = [n for i,n in enumerate(neighbors) if neighbor_agreement[i,chosen_idx] == 0]
-            for e_n in errant_neighbors:
-                self.reset_tile(e_n[1])
-                self.refresh_neighbors(e_n[1])
-                self.resolve_error(e_n[1])
-
-            return chosen_id
-
-        
-            
-
-        elif self.rules == WFCRules.BOTH_STRICT:
-            return (-1, 0)
-            # TODO: implment more elegant solution that resolves the error with a tile
-            #       that an option with compatible "distribution" and "possible" arrays
-
-    def collapse(self, start=False):
-        if start and not self.region_enforced: # First iteration
-            self.add_to_tilemap(grid_idx=self.start_idx, collapsed=self.start_tile)
-            self.entropy_map[self.start_idx] = self.tile_map[self.start_idx].compute_entropy(self.rules)
-            self.update_neighbors(self.start_idx)
+        if self.is_start: # First iteration
+            self.collapse_tile(self.start_idx, self.start_tile)
+            self.is_start = False
             return self.start_idx, False
         
-        if self.num_uncollapsed == 0:
+        while len(self.entropy_heapq):
+            min_idx = hq.heappop(self.entropy_heapq)[1]
+            target_tile = self.tile_map[min_idx] # min_idx guranteed to be in map
+
+            if target_tile.collapsed is None:
+                # entry popped from entropy queue is NOT a duplicate and we can continue
+                break
+
+        # catch the terminal case of empty entropy priority queue (no more tiles to collapse)
+        if not self.entropy_heapq:
             return None, True
-
-        min_idx = np.unravel_index(np.argmin(self.entropy_map), self.entropy_map.shape)
-        target_tile = self.tile_map[min_idx]
-        # min_entropy = self.entropy_map[min_idx]
-
-        if target_tile.collapsed != None:
-            # Handles enforced region tiles
-            self.num_uncollapsed -= 1
-            return min_idx, False
 
         probs = target_tile.possible * target_tile.distribution
         probs_sum = np.sum(probs)
-        chosen_id = (-1, 0)
 
+        chosen_id = self.template.tileset.error_id
+
+        # If rule is relaxed with no available possible/distribution or rule is sockets-only, default to not using distribution
         if (self.rules == WFCRules.BOTH_RELAXED and probs_sum == 0.0) or self.rules == WFCRules.SOCKETS_ONLY:
             probs = target_tile.possible
             probs_sum = np.sum(probs)
 
+        # if only using sockets, we WILL apply the weights specified in the tileset JSONs
+        # and additionally will use patch tiles if any exist to cover errors
         if self.rules == WFCRules.SOCKETS_ONLY:
-            weights = []
-            for t_idx in range(len(target_tile.possible)):
-                t_id = self.template.tileset.idANDidx[t_idx]
-                weights.append(self.template.tileset.tiles[t_id].weight)
+            weights = self.template.tileset.get_weights()
                 
             if probs_sum != 0.0:
-                probs   = weights * target_tile.possible
-                probs = probs / np.sum(probs)
+                probs = weights * target_tile.possible
             else:
-                viable_patches = []
-                # print(f'looking for viable patch tiles...')
-                for patch_idx in self.patch_tiles_idx:
-                    patch_id = self.template.tileset.idANDidx[patch_idx]
-                    if self.check_neighbors_using_sockets(min_idx, patch_id):
-                        viable_patches.append(patch_id)
+                viable_patch_idxs = []
+                for patch_idx in self.template.tileset.patch_idxs:
+                    if self.check_neighbors_using_sockets(min_idx, patch_idx):
+                        viable_patch_idxs.append(patch_idx)
                         
-                if viable_patches:
-                    if len(viable_patches) == 1:
-                        chosen_id = viable_patches[0]
+                if viable_patch_idxs:
+                    if len(viable_patch_idxs) == 1:
+                        chosen_id = viable_patch_idxs[0]
                     else:
                         probs = np.zeros_like(probs)
-                        for vp in viable_patches:
-                            vp_idx = self.template.tileset.idANDidx[vp]
-                            probs[vp_idx] = weights[vp_idx]
-                        probs = probs / np.sum(probs)
+                        for vp in viable_patch_idxs:
+                            probs[vp] = weights[vp]
+        
 
-        else:
-            if probs_sum != 0.0:
-                probs = probs / probs_sum
-
-        if np.sum(probs) != 0.0:
+        probs_sum = np.sum(probs)
+        if probs_sum != 0.0:
+            probs = probs / probs_sum
             chosen_idx = self.rng.choice(range(len(probs)), 1, p=probs)[0]
             chosen_id  = self.template.tileset.idANDidx[chosen_idx]
 
-        if chosen_id == (-1, 0):
-            chosen_id = self.resolve_error(min_idx)
-            # print(f'\nError Tile selected! @ {min_idx}')
+        # if no solution found... try to resolve error (TODO)
+        if chosen_id == self.template.tileset.error_id:
+            # chosen_id = self.resolve_error(min_idx)
+            print(f'\nError Tile selected! @ {min_idx}')
         
-        target_tile.collapse(chosen_id)
-        self.num_uncollapsed -= 1
-        self.entropy_map[min_idx] = np.inf
-
-        self.update_neighbors(min_idx)
+        self.collapse_tile(min_idx, chosen_id)
 
         return min_idx, False
 
-    def setup_patches(self):
-        self.patch_tiles_idx = None
-        if self.rules == WFCRules.SOCKETS_ONLY:
-            self.patch_tiles_idx = []
-            for tile_id, t in self.template.tileset.tiles.items():
-                if t.ispatch:
-                    self.patch_tiles_idx.append(self.template.tileset.idANDidx[tile_id])
-            self.default_possible[self.patch_tiles_idx] = 0
-
-        # mid_kernel = (self.kernel_idxs[-1][0] // 2, self.kernel_idxs[-1][1] // 2)
-        # # print(mid_kernel)
-        # for idx in range(self.template.tileset.count):
-        #     print(f'COUNT: {self.template.data_encoded[idx][idx, mid_kernel[0], mid_kernel[1]]}')
-        #     if self.template.data_encoded[idx][idx, mid_kernel[0], mid_kernel[1]] != 0:
-        #         self.start_tile = self.template.tileset.idANDidx[idx]
-        #         print(f'EVAN: {self.start_tile}')
-        #         break
+    def enforce_region(self, region, tile_id):
+        print(f'enforcing region')
+        self.region_enforced = True
+        region_ws = range(region[0], region[2])
+        region_hs = range(region[1], region[3])
+        for w_idx in region_ws:
+            for h_idx in region_hs:
+                idx = (w_idx, h_idx)
+                self.collapse_tile(idx, tile_id)
+        self.is_start = False
 
     def run(self):
-        self.setup_patches()
+        print("\nRunning WFC")
         self.init_rng()
-        self.collapse(start=True)
+        self.collapse()
         while True:
-                collapsed_idx, terminate = self.collapse()
+                collapsed_grid_idx, terminate = self.collapse()
                 if terminate:
+                    print('No tiles left in priority queue... Terminating')
                     break
+
+    def run_step(self):
+        if self.is_start:
+            self.init_rng()
+        idx, terminate = self.collapse()
+        print(f'\n{idx} collapsed')
     
 ##############################################
 #############------ MAIN ------###############
@@ -401,22 +295,19 @@ class WFC():
 if __name__ == "__main__":
 
     from wfc_GUI import WFC_GUI
+    
+    tile.TileSet.default_scale = 1
+    grid_dims = (100, 80)
 
-    tile.TileSet.default_scale = 2
-    default_rules = WFCRules.SOCKETS_ONLY
-    grid_dims = (40, 30)
     template_filenames = {  "default_tile_set",
                             "village_tile_set2",
                             "ocean_tile_set",
                             "seaweed_set"
-                            #, "bright_set"
                          }
-    
-    wfc_templates = template.Template.load_templates(template_filenames)
 
     # Input your own custom tilesets via the WFC_GUI classmethod below
-
-    wfc_dict   = {i : WFC(grid_dims, t, rules=WFCRules.BOTH_STRICT) for i, t in enumerate(wfc_templates.values())}
+    wfc_templates = template.Template.load_templates(template_filenames)
+    wfc_dict   = {i : WFC(grid_dims, t, rules=WFCRules.SOCKETS_ONLY) for i, t in enumerate(wfc_templates.values())}
     wfc_window = WFC_GUI(wfc_dict, run_animated=False)
     wfc_window.launch()
 
